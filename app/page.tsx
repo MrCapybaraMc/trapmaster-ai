@@ -509,7 +509,7 @@ export default function Home() {
               </div>
 
               <p className="mt-8 text-center text-sm text-white/70">
-                Płatności przyjmowane są w dolarach serwerowych BananaSMP.net.
+                Płatności przyjmowane są w dolarach serwerowych BananaSMP.pl.
               </p>
             </section>
 
@@ -745,7 +745,7 @@ export default function Home() {
               <h3 className="text-2xl font-black">WAŻNA INFORMACJA</h3>
               <p className="mt-4 leading-7 text-white/85">
                 TRAPMASTERS jest niezależnym projektem społecznościowym.
-                Nie jest oficjalną stroną BananaSMP.net i nie jest przez
+                Nie jest oficjalną stroną BananaSMP.pl i nie jest przez
                 ten serwer prowadzony ani wspierany.
               </p>
               <p className="mt-4 text-sm text-white/70">
@@ -802,7 +802,7 @@ export default function Home() {
           </div>
 
           <p className="mx-auto mt-6 max-w-2xl text-xs leading-6 text-white/50">
-            TRAPMASTERS nie jest oficjalnie powiązany z BananaSMP.net.
+            TRAPMASTERS nie jest oficjalnie powiązany z BananaSMP.pl.
             Minecraft jest znakiem towarowym Mojang Studios.
           </p>
 
