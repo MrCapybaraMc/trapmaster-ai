@@ -1,10 +1,7 @@
 
 "use client";
 
-const [hasTrapperAccess, setHasTrapperAccess] = useState(false);
-const [musicEnabled, setMusicEnabled] = useState(false);
-const [musicStarted, setMusicStarted] = useState(false);
-const backgroundVideoRef = useRef<HTMLVideoElement>(null);
+import { useEffect, useState } from "react";
 import { createClient } from "../../lib/supabase/client";
 
 export default function OwnerPage() {
@@ -72,10 +69,7 @@ export default function OwnerPage() {
   return (
     <main className="min-h-screen bg-[#080b12] p-5 text-white">
       <div className="mx-auto max-w-5xl">
-        <a
-          href="/"
-          className="text-sm text-gray-400 hover:text-white"
-        >
+        <a href="/" className="text-sm text-gray-400 hover:text-white">
           ← Powrót na stronę główną
         </a>
 
