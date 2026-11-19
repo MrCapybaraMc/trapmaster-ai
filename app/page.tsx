@@ -813,7 +813,6 @@ export default function Home() {
       applicationExperience.trim().length < 10 ||
       applicationMotivation.trim().length < 10 ||
       likesZenciaka === null ||
-      likesZenciaka === null ||
       applicantFirstName.trim().length < 1 ||
       !/^[0-9]{1,2}$/.test(applicantAge) ||
       Number(applicantAge) < 13 || Number(applicantAge) > 99 ||
