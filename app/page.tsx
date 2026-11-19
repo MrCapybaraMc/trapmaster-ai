@@ -1926,10 +1926,14 @@ export default function Home() {
                         <p className="mt-3 break-all text-xs text-white/50">
                           {t.sender}: {application.user_id}
                         </p>
+                        <div className="mt-4 grid gap-2 text-sm text-white/70 sm:grid-cols-2">
+                          <p><span className="font-bold text-yellow-200">Imię:</span> {application.first_name || "—"}</p>
+                          <p><span className="font-bold text-yellow-200">Wiek:</span> {application.applicant_age ?? "—"}</p>
+                          <p><span className="font-bold text-yellow-200">Czy lubi zenciaka:</span> {application.likes_zenciaka ? "Tak" : application.likes_zenciaka === false ? "Nie" : "—"}</p>
+                        </div>
+                        {application.about && <div className="mt-5"><h5 className="font-bold">O sobie</h5><p className="mt-2 whitespace-pre-wrap leading-7 text-white/80">{application.about}</p></div>}
                         <h5 className="mt-5 font-bold">{t.experience}</h5>
-                        <p className="mt-2 whitespace-pre-wrap leading-7 text-white/80">
-                          {application.experience}
-                        </p>
+                        <p className="mt-2 whitespace-pre-wrap leading-7 text-white/80">{application.experience}</p>
                         <h5 className="mt-5 font-bold">{t.motivation}</h5>
                         <p className="mt-2 whitespace-pre-wrap leading-7 text-white/80">
                           {application.motivation}
