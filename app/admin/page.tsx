@@ -280,10 +280,12 @@ export default function AdminPage() {
         ) : (
           <>
             {tab === "stats" && (
-              <section className="grid gap-4 sm:grid-cols-3">
+              <section className="grid gap-4 sm:grid-cols-2 lg:grid-cols-5">
                 <Stat title="Wszystkie odwiedziny" value={Number(stats?.total_visits || 0)} />
                 <Stat title="Dzisiaj" value={Number(stats?.today_visits || 0)} />
                 <Stat title="Ostatnie 7 dni" value={Number(stats?.week_visits || 0)} />
+                <Stat title="Zarejestrowane konta" value={Number(stats?.registered_users || 0)} />
+                <Stat title="Zatwierdzone zamówienia" value={Number(stats?.approved_orders || 0)} />
               </section>
             )}
 
