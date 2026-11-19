@@ -436,9 +436,6 @@ export default function Home() {
   const [settingsLoading, setSettingsLoading] = useState(true);
 
   const [musicEnabled, setMusicEnabled] = useState(false);
-  const [profile, setProfile] = useState<UserProfile | null>(null);
-  const [dailyMessage, setDailyMessage] = useState("");
-  const [dailyBusy, setDailyBusy] = useState(false);
   const [language, setLanguage] = useState<Language>("pl");
   const [activeTab, setActiveTab] = useState<Tab>("forum");
 
@@ -480,12 +477,6 @@ export default function Home() {
 
   const t = translations[language];
   const isAdmin = userRole === "admin" || userRole === "owner";
-
-  const loadProfile = useCallback(async (id: string) => {
-    if (!id) { setProfile(null); return; }
-    const { data } = await supabase.from("profiles").select("nickname,avatar_url,points,daily_streak,last_daily_claim").eq("user_id", id).maybeSingle();
-    setProfile(data as UserProfile | null);
-  }, [supabase]);
 
   const loadProfile = useCallback(async (id: string) => {
     if (!id) { setProfile(null); return; }
