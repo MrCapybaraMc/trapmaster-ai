@@ -21,9 +21,11 @@ type Tab =
   | "help"
   | "recruitment"
   | "creators"
-  | "settings"
+  | "daily"
   | "support-admin"
   | "recruitment-admin";
+
+type UserProfile = { nickname: string; avatar_url: string | null; points: number; daily_streak: number; last_daily_claim: string | null; };
 
 type ForumPost = {
   id: string;
@@ -205,6 +207,7 @@ const translations = {
     trappers: "TrapMasterzy",
     recruitment: "Rekrutacja",
     creators: "Trap Creators",
+    daily: "Daily",
     settings: "Ustawienia",
     supportAdmin: "Zgłoszenia",
     recruitmentAdmin: "Zgłoszenia rekrutacyjne",
@@ -231,7 +234,7 @@ const translations = {
     nick: "Twój nick Minecraft",
     sendApplication: "WYŚLIJ ZGŁOSZENIE",
     creatorsTitle: "TRAP CREATORS",
-    creatorsFuture: "In future",
+    creatorsFuture: "Już wkrótce",
     founder: "Założyciel strony",
     settingsTitle: "USTAWIENIA STRONY",
     language: "Język strony",
@@ -334,6 +337,7 @@ const translations = {
     trappers: "TrapMasters",
     recruitment: "Recruitment",
     creators: "Trap Creators",
+    daily: "Daily rewards",
     settings: "Settings",
     supportAdmin: "Support submissions",
     recruitmentAdmin: "Zgłoszenia rekrutacyjne",
@@ -360,7 +364,7 @@ const translations = {
     nick: "Your Minecraft nickname",
     sendApplication: "SEND APPLICATION",
     creatorsTitle: "TRAP CREATORS",
-    creatorsFuture: "In future",
+    creatorsFuture: "Coming soon",
     founder: "Website founder",
     settingsTitle: "WEBSITE SETTINGS",
     language: "Website language",
@@ -422,6 +426,9 @@ export default function Home() {
   const [selected, setSelected] = useState<Package | null>(null);
   const [loggedIn, setLoggedIn] = useState(false);
   const [userId, setUserId] = useState("");
+  const [profile, setProfile] = useState<UserProfile | null>(null);
+  const [dailyMessage, setDailyMessage] = useState("");
+  const [dailyBusy, setDailyBusy] = useState(false);
   const [userRole, setUserRole] = useState<UserRole>("user");
   const [hasTrapperAccess, setHasTrapperAccess] = useState(false);
   const [authLoading, setAuthLoading] = useState(true);
@@ -456,7 +463,7 @@ export default function Home() {
   const [applicationNick, setApplicationNick] = useState("");
   const [applicationExperience, setApplicationExperience] = useState("");
   const [applicationMotivation, setApplicationMotivation] = useState("");
-  const [likesZenciaka, setLikesZenciaka] = useState(false);
+  const [likesZenciaka, setLikesZenciaka] = useState<boolean | null>(null);
   const [applicantAge, setApplicantAge] = useState("");
   const [applicantFirstName, setApplicantFirstName] = useState("");
   const [applicantAbout, setApplicantAbout] = useState("");
@@ -470,6 +477,12 @@ export default function Home() {
 
   const t = translations[language];
   const isAdmin = userRole === "admin" || userRole === "owner";
+
+  const loadProfile = useCallback(async (id: string) => {
+    if (!id) { setProfile(null); return; }
+    const { data } = await supabase.from("profiles").select("nickname,avatar_url,points,daily_streak,last_daily_claim").eq("user_id", id).maybeSingle();
+    setProfile(data as UserProfile | null);
+  }, [supabase]);
 
   useEffect(() => {
     if (typeof window === "undefined") return;
@@ -584,6 +597,7 @@ export default function Home() {
 
       setLoggedIn(!!user);
       setUserId(user?.id ?? "");
+      await loadProfile(user?.id ?? "");
       setAuthLoading(false);
 
       await loadRole(user?.id);
@@ -616,6 +630,7 @@ export default function Home() {
 
       setLoggedIn(!!session);
       setUserId(session?.user.id ?? "");
+      await loadProfile(session?.user.id ?? "");
       await loadRole(session?.user.id);
       setAuthLoading(false);
     });
@@ -624,7 +639,7 @@ export default function Home() {
       mounted = false;
       subscription.unsubscribe();
     };
-  }, [supabase, loadRole]);
+  }, [supabase, loadRole, loadProfile]);
 
   // Synchronizacja dĹşwiÄ™ku z filmem.
   useEffect(() => {
@@ -797,6 +812,7 @@ export default function Home() {
       applicationNick.trim().length < 1 ||
       applicationExperience.trim().length < 10 ||
       applicationMotivation.trim().length < 10 ||
+      likesZenciaka === null ||
       applicantFirstName.trim().length < 1 ||
       !/^[0-9]{1,2}$/.test(applicantAge) ||
       Number(applicantAge) < 13 || Number(applicantAge) > 99 ||
@@ -832,7 +848,7 @@ export default function Home() {
     setApplicationNick("");
     setApplicationExperience("");
     setApplicationMotivation("");
-    setLikesZenciaka(false);
+    setLikesZenciaka(null);
     setApplicantAge("");
     setApplicantFirstName("");
     setApplicantAbout("");
@@ -967,12 +983,32 @@ export default function Home() {
     }, 50);
   }
 
+  async function claimDailyReward() {
+    if (!loggedIn) { setDailyMessage("Zaloguj się, aby odbierać punkty Daily."); return; }
+    setDailyBusy(true); setDailyMessage("");
+    const { data, error } = await supabase.rpc("claim_daily_reward");
+    if (error) setDailyMessage(error.message);
+    else { const result = Array.isArray(data) ? data[0] : data; setDailyMessage(`Odebrano ${result.points_awarded} punktów! Seria: ${result.streak_days} dni.`); await loadProfile(userId); }
+    setDailyBusy(false);
+  }
+
+  async function redeemDailyAccess() {
+    if (!loggedIn) { setDailyMessage("Zaloguj się, aby wymienić punkty."); return; }
+    if (!window.confirm("Wymienić 2150 punktów na 24 godziny dostępu TrapMaster?")) return;
+    setDailyBusy(true); setDailyMessage("");
+    const { data, error } = await supabase.rpc("redeem_daily_access");
+    if (error) setDailyMessage(error.message);
+    else { setDailyMessage(`Wymieniono punkty! Dostęp do ${new Date(data.expires_at).toLocaleString("pl-PL")}.`); await loadProfile(userId); }
+    setDailyBusy(false);
+  }
+
   const tabItems: { id: Tab; label: string }[] = [
     { id: "forum", label: t.forum },
     { id: "trappers", label: t.trappers },
     { id: "help", label: t.help },
     { id: "recruitment", label: t.recruitment },
     { id: "creators", label: t.creators },
+    { id: "daily", label: t.daily },
   ];
 
   if (isAdmin) {
@@ -1054,9 +1090,7 @@ export default function Home() {
               <button onClick={() => openTab("forum")} className="hover:text-purple-400">
                 {t.forum}
               </button>
-              <button onClick={() => openTab("settings")} className="hover:text-purple-400">
-                {t.settings}
-              </button>
+              <button onClick={() => openTab("daily")} className="hover:text-amber-300">Daily</button>
 
               {loggedIn && (
                 <a href="/account" className="font-bold text-purple-300">
@@ -1102,11 +1136,9 @@ export default function Home() {
             {authLoading ? (
               <span className="text-sm text-gray-400">{t.loading}</span>
             ) : loggedIn ? (
-              <a
-                href="/account"
-                className="rounded-xl border border-green-400/40 bg-green-500/15 px-5 py-3 text-sm font-bold text-green-300"
-              >
-                👤 {t.myAccount}
+              <a href="/account" className="flex items-center gap-3 rounded-xl border border-green-400/40 bg-green-500/15 px-4 py-2.5 text-sm font-bold text-green-300">
+                {profile?.avatar_url ? <img src={profile.avatar_url} alt="" className="h-8 w-8 rounded-full border border-green-300/40 object-cover" /> : <span className="grid h-8 w-8 place-items-center rounded-full bg-green-500/20"><svg viewBox="0 0 24 24" aria-hidden="true" className="h-5 w-5" fill="none" stroke="currentColor" strokeWidth="1.8"><circle cx="12" cy="8" r="3.5"/><path d="M5 20c.7-3.5 3.1-5.3 7-5.3s6.3 1.8 7 5.3"/></svg></span>}
+                <span>{profile?.nickname || t.myAccount}</span>
               </a>
             ) : (
               <a
@@ -1551,6 +1583,47 @@ export default function Home() {
               </div>
             )}
 
+            {/* DAILY */}
+            {activeTab === "daily" && (
+              <div className="relative isolate overflow-hidden rounded-3xl border border-amber-300/30 bg-[#17120a] p-6 shadow-2xl md:p-10">
+                <video autoPlay muted loop playsInline className="absolute inset-0 -z-20 h-full w-full object-cover opacity-35">
+                  <source src="/videos/daily.mp4" type="video/mp4" />
+                </video>
+                <div className="absolute inset-0 -z-10 bg-gradient-to-br from-[#100d08]/90 via-[#16100b]/85 to-purple-950/70" />
+                <div className="relative">
+                  <p className="text-xs font-black uppercase tracking-[.35em] text-amber-300">TRAPMASTERS REWARDS</p>
+                  <h3 className="mt-3 text-4xl font-black md:text-5xl">DAILY <span className="text-amber-300">REWARDS</span></h3>
+                  <p className="mt-3 max-w-2xl text-white/75">Odbieraj punkty każdego dnia, buduj serię logowań i wymieniaj punkty na czasowy dostęp do TrapMastera.</p>
+                  {loggedIn ? (
+                    <>
+                      <div className="mt-8 grid gap-4 sm:grid-cols-3">
+                        <div className="rounded-2xl border border-amber-300/20 bg-black/45 p-5"><p className="text-sm text-white/55">Twoje punkty</p><p className="mt-2 text-4xl font-black text-amber-200">{profile?.points ?? 0}</p></div>
+                        <div className="rounded-2xl border border-amber-300/20 bg-black/45 p-5"><p className="text-sm text-white/55">Seria logowań</p><p className="mt-2 text-4xl font-black">{profile?.daily_streak ?? 0} <span className="text-base font-semibold text-white/60">dni</span></p></div>
+                        <div className="rounded-2xl border border-amber-300/20 bg-black/45 p-5"><p className="text-sm text-white/55">Nagroda za następny dzień</p><p className="mt-2 text-4xl font-black text-amber-200">{(profile?.daily_streak ?? 0) >= 13 ? 150 : (profile?.daily_streak ?? 0) >= 4 ? 100 : 50} <span className="text-base font-semibold text-white/60">pkt</span></p></div>
+                      </div>
+                      <div className="mt-7 flex flex-wrap gap-3">
+                        <button onClick={claimDailyReward} disabled={dailyBusy || profile?.last_daily_claim === new Date().toISOString().slice(0,10)} className="rounded-xl bg-amber-300 px-7 py-4 font-black text-black transition hover:bg-amber-200 disabled:cursor-not-allowed disabled:opacity-40">{profile?.last_daily_claim === new Date().toISOString().slice(0,10) ? "NAGRODA ODEBRANA DZISIAJ" : dailyBusy ? "CHWILA..." : "ODBIERZ DZIENNĄ NAGRODĘ"}</button>
+                        <button onClick={redeemDailyAccess} disabled={dailyBusy || (profile?.points ?? 0) < 2150} className="rounded-xl border border-purple-300/40 bg-purple-600/25 px-7 py-4 font-bold text-purple-100 transition hover:bg-purple-600/40 disabled:cursor-not-allowed disabled:opacity-40">Wymień 2150 pkt na 24h TrapMaster</button>
+                        <a href="/account" className="rounded-xl border border-white/15 bg-white/5 px-6 py-4 font-bold text-white/80 hover:bg-white/10">Moje konto</a>
+                      </div>
+                    </>
+                  ) : (
+                    <div className="mt-8 rounded-2xl border border-white/10 bg-black/40 p-6">
+                      <p className="text-white/80">Zaloguj się, aby zbierać punkty i odbierać nagrody.</p>
+                      <a href="/register" className="mt-4 inline-block rounded-xl bg-amber-300 px-6 py-3 font-black text-black">ZALOGUJ SIĘ</a>
+                    </div>
+                  )}
+                  <div className="mt-7 grid gap-3 text-sm text-white/70 sm:grid-cols-3">
+                    <div className="rounded-xl bg-black/30 p-4">Dni 1–4 <strong className="block text-xl text-amber-200">50 pkt / dzień</strong></div>
+                    <div className="rounded-xl bg-black/30 p-4">Dni 5–13 <strong className="block text-xl text-amber-200">100 pkt / dzień</strong></div>
+                    <div className="rounded-xl bg-black/30 p-4">Od dnia 14 <strong className="block text-xl text-amber-200">150 pkt / dzień</strong></div>
+                  </div>
+                  {dailyMessage && <p className="mt-5 rounded-xl border border-white/10 bg-black/40 p-4 text-sm text-white/90">{dailyMessage}</p>}
+                  <p className="mt-4 text-xs text-white/40">2150 punktów = 24 godziny dostępu. Przy codziennym odbieraniu nagród można uzbierać tę kwotę w 20 dni.</p>
+                </div>
+              </div>
+            )}
+
             {/* TRAPMASTERZY */}
             {activeTab === "trappers" && (
               <div className="rounded-3xl border border-purple-400/30 bg-black/70 p-6 backdrop-blur-md md:p-10">
@@ -1695,8 +1768,8 @@ export default function Home() {
                   <div className="mt-8 space-y-5">
                     <label className="block text-sm font-bold">
                       Czy lubisz zenciaka?
-                      <select value={likesZenciaka ? "yes" : "no"} onChange={(e) => setLikesZenciaka(e.target.value === "yes")} className="mt-2 w-full rounded-xl border border-white/20 bg-black/70 px-4 py-4 font-normal">
-                        <option value="yes">Tak</option><option value="no">Nie</option>
+                      <select required value={likesZenciaka === null ? "" : likesZenciaka ? "yes" : "no"} onChange={(e) => setLikesZenciaka(e.target.value === "" ? null : e.target.value === "yes")} className="mt-2 w-full rounded-xl border border-white/20 bg-black/70 px-4 py-4 font-normal">
+                        <option value="" disabled>Wybierz odpowiedź</option><option value="yes">Tak</option><option value="no">Nie</option>
                       </select>
                     </label>
                     <label className="block text-sm font-bold">
@@ -1780,57 +1853,6 @@ export default function Home() {
                     ))}
                   </div>
                 </div>
-              </div>
-            )}
-
-            {/* USTAWIENIA */}
-            {activeTab === "settings" && (
-              <div className="mx-auto max-w-2xl rounded-3xl border border-purple-400/30 bg-black/75 p-6 backdrop-blur-md md:p-10">
-                <h3 className="text-3xl font-black text-purple-200">
-                  {t.settingsTitle}
-                </h3>
-
-                <div className="mt-8 rounded-2xl border border-white/15 bg-black/40 p-6">
-                  <h4 className="font-bold">{t.language}</h4>
-                  <div className="mt-4 flex gap-3">
-                    <button
-                      onClick={() => changeLanguage("pl")}
-                      className={`rounded-xl px-6 py-3 font-bold ${
-                        language === "pl"
-                          ? "bg-purple-600"
-                          : "border border-white/20 bg-black/30"
-                      }`}
-                    >
-                      🇵🇱 Polski
-                    </button>
-                    <button
-                      onClick={() => changeLanguage("en")}
-                      className={`rounded-xl px-6 py-3 font-bold ${
-                        language === "en"
-                          ? "bg-purple-600"
-                          : "border border-white/20 bg-black/30"
-                      }`}
-                    >
-                      🇬🇧 English
-                    </button>
-                  </div>
-                </div>
-
-                <div className="mt-5 rounded-2xl border border-white/15 bg-black/40 p-6">
-                  <h4 className="font-bold">{t.sound}</h4>
-                  <button
-                    onClick={toggleMusic}
-                    className="mt-4 rounded-xl bg-purple-600 px-6 py-3 font-bold hover:bg-purple-500"
-                  >
-                    {musicEnabled ? `🔊 ${t.soundOn}` : `🔇 ${t.soundOff}`}
-                  </button>
-                </div>
-
-                <p className="mt-5 text-xs leading-6 text-white/50">
-                  {language === "pl"
-                    ? "Ustawienia języka i dźwięku są zapisywane w tej przeglądarce. Panel ownera pozostaje w języku polskim."
-                    : "Language and sound settings are saved in this browser. The owner panel remains in Polish."}
-                </p>
               </div>
             )}
 
@@ -1985,8 +2007,7 @@ export default function Home() {
             <a href="https://www.youtube.com/@MrCapybara-s" target="_blank" rel="noreferrer">
               YouTube
             </a>
-            <button onClick={() => openTab("settings")}>{t.settings}</button>
-          </div>
+            </div>
 
           <p className="mx-auto mt-6 max-w-2xl text-xs leading-6 text-white/50">
             TRAPMASTERS nie jest oficjalnie powiązany z BananaSMP.pl.
