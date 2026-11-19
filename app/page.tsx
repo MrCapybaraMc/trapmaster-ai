@@ -309,7 +309,7 @@ const translations = {
     processing: "Order processing time",
     processingText:
       "Orders are processed within 24 hours on weekdays and 36 hours on days off.",
-    sendOrder: "I PAID â€” SUBMIT ORDER",
+    sendOrder: "I PAID — SUBMIT ORDER",
     sending: "SENDING...",
     back: "Back to offer",
     loginRequired: "You must log in to submit an order.",
@@ -1126,7 +1126,7 @@ export default function Home() {
         ) : paused ? (
           <section className="flex min-h-[75vh] flex-col items-center justify-center px-6 text-center">
             <div className="max-w-2xl rounded-3xl border border-red-400/40 bg-black/75 p-10 backdrop-blur-sm">
-              <div className="text-5xl">đź”§</div>
+              <div className="text-5xl">🔧</div>
               <h1 className="mt-6 text-4xl font-black md:text-5xl">{t.paused}</h1>
               <p className="mt-5 leading-7 text-white/75">{t.pausedText}</p>
               <a
@@ -1760,7 +1760,7 @@ export default function Home() {
                         className="flex w-[280px] flex-shrink-0 items-center gap-5 rounded-2xl border border-purple-400/30 bg-[#11111c] p-6"
                       >
                         <div className="flex h-20 w-20 flex-shrink-0 items-center justify-center overflow-hidden rounded-xl border border-purple-400/40 bg-purple-950 text-4xl">
-                          <span>đź§‘â€Ťđź’»</span>
+                          <span>🧑‍💻</span>
                         </div>
                         <div>
                           <h4 className="font-black text-purple-200">
@@ -1801,7 +1801,7 @@ export default function Home() {
                           : "border border-white/20 bg-black/30"
                       }`}
                     >
-                      đź‡µđź‡± Polski
+                      🇵🇱 Polski
                     </button>
                     <button
                       onClick={() => changeLanguage("en")}
@@ -1811,7 +1811,7 @@ export default function Home() {
                           : "border border-white/20 bg-black/30"
                       }`}
                     >
-                      đź‡¬đź‡§ English
+                      🇬🇧 English
                     </button>
                   </div>
                 </div>
@@ -1822,7 +1822,7 @@ export default function Home() {
                     onClick={toggleMusic}
                     className="mt-4 rounded-xl bg-purple-600 px-6 py-3 font-bold hover:bg-purple-500"
                   >
-                    {musicEnabled ? `đź”Š ${t.soundOn}` : `đź”‡ ${t.soundOff}`}
+                    {musicEnabled ? `🔊 ${t.soundOn}` : `🔇 ${t.soundOff}`}
                   </button>
                 </div>
 
