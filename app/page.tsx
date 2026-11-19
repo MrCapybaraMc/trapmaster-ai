@@ -47,6 +47,10 @@ type SupportTicket = {
   user_id: string;
   subject: string;
   message: string;
+  category?: string;
+  priority?: string;
+  related_order?: string | null;
+  page_url?: string | null;
   status: string;
   created_at: string;
 };
@@ -456,6 +460,9 @@ export default function Home() {
   const [trappersLoading, setTrappersLoading] = useState(false);
 
   const [ticketSubject, setTicketSubject] = useState("");
+  const [ticketCategory, setTicketCategory] = useState("other");
+  const [ticketPriority, setTicketPriority] = useState("normal");
+  const [ticketOrder, setTicketOrder] = useState("");
   const [ticketContent, setTicketContent] = useState("");
   const [ticketSending, setTicketSending] = useState(false);
   const [ticketMessage, setTicketMessage] = useState("");
@@ -692,7 +699,7 @@ export default function Home() {
     const [ticketResult, applicationResult] = await Promise.all([
       supabase
         .from("support_tickets")
-        .select("id,user_id,subject,message,status,created_at")
+        .select("id,user_id,subject,message,category,priority,related_order,page_url,status,created_at")
         .order("created_at", { ascending: false })
         .limit(100),
 
@@ -786,6 +793,10 @@ export default function Home() {
     const { error } = await supabase.from("support_tickets").insert({
       user_id: userId,
       subject: ticketSubject.trim(),
+      category: ticketCategory,
+      priority: ticketPriority,
+      related_order: ticketOrder.trim() || null,
+      page_url: typeof window !== "undefined" ? window.location.href : null,
       message: ticketContent.trim(),
     });
 
@@ -797,6 +808,9 @@ export default function Home() {
     }
 
     setTicketSubject("");
+    setTicketCategory("other");
+    setTicketPriority("normal");
+    setTicketOrder("");
     setTicketContent("");
     setTicketMessage(t.success);
   }
@@ -989,6 +1003,19 @@ export default function Home() {
     const { data, error } = await supabase.rpc("redeem_daily_access");
     if (error) setDailyMessage(error.message);
     else { setDailyMessage(`Wymieniono punkty! Dostęp do ${new Date(data.expires_at).toLocaleString("pl-PL")}.`); await loadProfile(userId); }
+    setDailyBusy(false);
+  }
+
+  async function redeemPointsShop(itemId: string) {
+    const labels: Record<string, string> = { access_24h: "24 godziny", access_7d: "7 dni", access_30d: "30 dni" };
+    if (!window.confirm("Wymienić punkty na dostęp TrapMaster: " + (labels[itemId] || itemId) + "?")) return;
+    setDailyBusy(true); setDailyMessage("");
+    const { data, error } = await supabase.rpc("redeem_points_shop", { p_item_id: itemId });
+    if (error) setDailyMessage(error.message);
+    else {
+      setDailyMessage("Zakupiono " + data.title + ". Dostęp do: " + new Date(data.expires_at).toLocaleString("pl-PL"));
+      await loadProfile(userId);
+    }
     setDailyBusy(false);
   }
 
@@ -1586,47 +1613,6 @@ export default function Home() {
             {/* DAILY */}
             {activeTab === "daily" && (
               <div className="relative isolate overflow-hidden rounded-3xl border border-amber-300/30 bg-[#17120a] p-6 shadow-2xl md:p-10">
-                <video autoPlay muted loop playsInline className="absolute inset-0 -z-20 h-full w-full object-cover opacity-35">
-                  <source src="/videos/daily.mp4" type="video/mp4" />
-                </video>
-                <div className="absolute inset-0 -z-10 bg-gradient-to-br from-[#100d08]/90 via-[#16100b]/85 to-purple-950/70" />
-                <div className="relative">
-                  <p className="text-xs font-black uppercase tracking-[.35em] text-amber-300">TRAPMASTERS REWARDS</p>
-                  <h3 className="mt-3 text-4xl font-black md:text-5xl">DAILY <span className="text-amber-300">REWARDS</span></h3>
-                  <p className="mt-3 max-w-2xl text-white/75">Odbieraj punkty każdego dnia, buduj serię logowań i wymieniaj punkty na czasowy dostęp do TrapMastera.</p>
-                  {loggedIn ? (
-                    <>
-                      <div className="mt-8 grid gap-4 sm:grid-cols-3">
-                        <div className="rounded-2xl border border-amber-300/20 bg-black/45 p-5"><p className="text-sm text-white/55">Twoje punkty</p><p className="mt-2 text-4xl font-black text-amber-200">{profile?.points ?? 0}</p></div>
-                        <div className="rounded-2xl border border-amber-300/20 bg-black/45 p-5"><p className="text-sm text-white/55">Seria logowań</p><p className="mt-2 text-4xl font-black">{profile?.daily_streak ?? 0} <span className="text-base font-semibold text-white/60">dni</span></p></div>
-                        <div className="rounded-2xl border border-amber-300/20 bg-black/45 p-5"><p className="text-sm text-white/55">Nagroda za następny dzień</p><p className="mt-2 text-4xl font-black text-amber-200">{(profile?.daily_streak ?? 0) >= 13 ? 150 : (profile?.daily_streak ?? 0) >= 4 ? 100 : 50} <span className="text-base font-semibold text-white/60">pkt</span></p></div>
-                      </div>
-                      <div className="mt-7 flex flex-wrap gap-3">
-                        <button onClick={claimDailyReward} disabled={dailyBusy || profile?.last_daily_claim === new Date().toISOString().slice(0,10)} className="rounded-xl bg-amber-300 px-7 py-4 font-black text-black transition hover:bg-amber-200 disabled:cursor-not-allowed disabled:opacity-40">{profile?.last_daily_claim === new Date().toISOString().slice(0,10) ? "NAGRODA ODEBRANA DZISIAJ" : dailyBusy ? "CHWILA..." : "ODBIERZ DZIENNĄ NAGRODĘ"}</button>
-                        <button onClick={redeemDailyAccess} disabled={dailyBusy || (profile?.points ?? 0) < 2150} className="rounded-xl border border-purple-300/40 bg-purple-600/25 px-7 py-4 font-bold text-purple-100 transition hover:bg-purple-600/40 disabled:cursor-not-allowed disabled:opacity-40">Wymień 2150 pkt na 24h TrapMaster</button>
-                        <a href="/account" className="rounded-xl border border-white/15 bg-white/5 px-6 py-4 font-bold text-white/80 hover:bg-white/10">Moje konto</a>
-                      </div>
-                    </>
-                  ) : (
-                    <div className="mt-8 rounded-2xl border border-white/10 bg-black/40 p-6">
-                      <p className="text-white/80">Zaloguj się, aby zbierać punkty i odbierać nagrody.</p>
-                      <a href="/register" className="mt-4 inline-block rounded-xl bg-amber-300 px-6 py-3 font-black text-black">ZALOGUJ SIĘ</a>
-                    </div>
-                  )}
-                  <div className="mt-7 grid gap-3 text-sm text-white/70 sm:grid-cols-3">
-                    <div className="rounded-xl bg-black/30 p-4">Dni 1–4 <strong className="block text-xl text-amber-200">50 pkt / dzień</strong></div>
-                    <div className="rounded-xl bg-black/30 p-4">Dni 5–13 <strong className="block text-xl text-amber-200">100 pkt / dzień</strong></div>
-                    <div className="rounded-xl bg-black/30 p-4">Od dnia 14 <strong className="block text-xl text-amber-200">150 pkt / dzień</strong></div>
-                  </div>
-                  {dailyMessage && <p className="mt-5 rounded-xl border border-white/10 bg-black/40 p-4 text-sm text-white/90">{dailyMessage}</p>}
-                  <p className="mt-4 text-xs text-white/40">2150 punktów = 24 godziny dostępu. Przy codziennym odbieraniu nagród można uzbierać tę kwotę w 20 dni.</p>
-                </div>
-              </div>
-            )}
-
-            {/* DAILY */}
-            {activeTab === "daily" && (
-              <div className="relative isolate overflow-hidden rounded-3xl border border-amber-300/30 bg-[#17120a] p-6 shadow-2xl md:p-10">
                 <video autoPlay muted loop playsInline className="absolute inset-0 -z-20 h-full w-full object-cover opacity-35"><source src="/videos/daily.mp4" type="video/mp4" /></video>
                 <div className="absolute inset-0 -z-10 bg-gradient-to-br from-[#100d08]/90 via-[#16100b]/85 to-purple-950/70" />
                 <div className="relative">
@@ -1641,10 +1627,23 @@ export default function Home() {
                     </div>
                     <div className="mt-7 flex flex-wrap gap-3">
                       <button onClick={claimDailyReward} disabled={dailyBusy || profile?.last_daily_claim === new Date().toISOString().slice(0,10)} className="rounded-xl bg-amber-300 px-7 py-4 font-black text-black transition hover:bg-amber-200 disabled:cursor-not-allowed disabled:opacity-40">{profile?.last_daily_claim === new Date().toISOString().slice(0,10) ? "NAGRODA ODEBRANA DZISIAJ" : dailyBusy ? "CHWILA..." : "ODBIERZ DZIENNĄ NAGRODĘ"}</button>
-                      <button onClick={redeemDailyAccess} disabled={dailyBusy || (profile?.points ?? 0) < 2150} className="rounded-xl border border-purple-300/40 bg-purple-600/25 px-7 py-4 font-bold text-purple-100 transition hover:bg-purple-600/40 disabled:cursor-not-allowed disabled:opacity-40">Wymień 2150 pkt na 24h TrapMaster</button>
                       <a href="/account" className="rounded-xl border border-white/15 bg-white/5 px-6 py-4 font-bold text-white/80 hover:bg-white/10">Moje konto</a>
                     </div>
                   </> : <div className="mt-8 rounded-2xl border border-white/10 bg-black/40 p-6"><p className="text-white/80">Zaloguj się, aby zbierać punkty i odbierać nagrody.</p><a href="/register" className="mt-4 inline-block rounded-xl bg-amber-300 px-6 py-3 font-black text-black">ZALOGUJ SIĘ</a></div>}
+                  {loggedIn && (
+                    <section className="mt-9 rounded-2xl border border-purple-300/20 bg-black/40 p-5 md:p-7">
+                      <div className="flex flex-wrap items-end justify-between gap-3"><div><p className="text-xs font-black uppercase tracking-[.25em] text-purple-300">PUNKTY</p><h4 className="mt-2 text-2xl font-black">SKLEP NAGRÓD</h4><p className="mt-1 text-sm text-white/55">Wymieniaj punkty na dodatkowy czas dostępu.</p></div><span className="font-bold text-amber-200">{profile?.points ?? 0} pkt</span></div>
+                      <div className="mt-5 grid gap-3 md:grid-cols-3">
+                        {[{id:"access_24h",name:"TrapMaster 24 godziny",cost:2150,detail:"1 dzień dostępu"},{id:"access_7d",name:"TrapMaster 7 dni",cost:12000,detail:"Tydzień dostępu"},{id:"access_30d",name:"TrapMaster 30 dni",cost:40000,detail:"Miesiąc dostępu"}].map((item) => (
+                          <article key={item.id} className="rounded-xl border border-white/10 bg-white/5 p-4">
+                            <h5 className="font-bold">{item.name}</h5><p className="mt-1 text-sm text-white/50">{item.detail}</p>
+                            <p className="mt-4 text-xl font-black text-amber-200">{item.cost.toLocaleString("pl-PL")} pkt</p>
+                            <button onClick={() => redeemPointsShop(item.id)} disabled={dailyBusy || (profile?.points ?? 0) < item.cost} className="mt-3 w-full rounded-lg bg-purple-600 px-4 py-3 font-bold disabled:opacity-40">Wymień punkty</button>
+                          </article>
+                        ))}
+                      </div>
+                    </section>
+                  )}
                   <div className="mt-7 grid gap-3 text-sm text-white/70 sm:grid-cols-3">
                     <div className="rounded-xl bg-black/30 p-4">Dni 1–4 <strong className="block text-xl text-amber-200">50 pkt / dzień</strong></div>
                     <div className="rounded-xl bg-black/30 p-4">Dni 5–13 <strong className="block text-xl text-amber-200">100 pkt / dzień</strong></div>
@@ -1740,6 +1739,21 @@ export default function Home() {
                       />
                     </label>
 
+                    <div className="grid gap-4 sm:grid-cols-2">
+                      <label className="block text-sm font-bold">Kategoria zgłoszenia
+                        <select value={ticketCategory} onChange={(e) => setTicketCategory(e.target.value)} className="mt-2 w-full rounded-xl border border-white/20 bg-black/70 px-4 py-4 font-normal text-white">
+                          <option value="account">Konto / profil</option><option value="payment">Płatność / zamówienie</option><option value="access">Dostęp TrapMaster</option><option value="bug">Błąd strony</option><option value="other">Inne</option>
+                        </select>
+                      </label>
+                      <label className="block text-sm font-bold">Priorytet
+                        <select value={ticketPriority} onChange={(e) => setTicketPriority(e.target.value)} className="mt-2 w-full rounded-xl border border-white/20 bg-black/70 px-4 py-4 font-normal text-white">
+                          <option value="low">Niski</option><option value="normal">Normalny</option><option value="high">Wysoki</option>
+                        </select>
+                      </label>
+                    </div>
+                    <label className="block text-sm font-bold">Numer zamówienia (opcjonalnie)
+                      <input value={ticketOrder} onChange={(e) => setTicketOrder(e.target.value)} maxLength={80} placeholder="Wklej numer zamówienia, jeśli dotyczy" className="mt-2 w-full rounded-xl border border-white/20 bg-black/70 px-4 py-4 font-normal outline-none focus:border-purple-400" />
+                    </label>
                     <label className="block text-sm font-bold">
                       {t.message}
                       <textarea
