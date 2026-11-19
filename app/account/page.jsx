@@ -1,5 +1,7 @@
 "use client";
 
+// Keep this file as plain JSX: do not add TypeScript generic annotations here.
+
 import { useCallback, useEffect, useState } from "react";
 import { createClient } from "../../lib/supabase/client";
 
