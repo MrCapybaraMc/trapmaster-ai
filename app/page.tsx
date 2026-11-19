@@ -798,7 +798,7 @@ export default function Home() {
       applicationExperience.trim().length < 10 ||
       applicationMotivation.trim().length < 10 ||
       applicantFirstName.trim().length < 1 ||
-      !/^\\d{1,2}$/.test(applicantAge) ||
+      !/^[0-9]{1,2}$/.test(applicantAge) ||
       Number(applicantAge) < 13 || Number(applicantAge) > 99 ||
       applicantAbout.trim().split(/[.!?]+/).filter((sentence) => sentence.trim().length > 0).length < 5
     ) {
