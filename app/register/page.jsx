@@ -11,7 +11,9 @@ export default function RegisterPage() {
 
   const [mode, setMode] = useState("register");
   const [email, setEmail] = useState("");
+  const [nickname, setNickname] = useState("");
   const [password, setPassword] = useState("");
+  const [confirmPassword, setConfirmPassword] = useState("");
   const [message, setMessage] = useState("");
   const [loading, setLoading] = useState(false);
 
@@ -22,9 +24,13 @@ export default function RegisterPage() {
 
     try {
       if (mode === "register") {
+        const cleanNickname = nickname.trim();
+        if (cleanNickname.length < 3 || cleanNickname.length > 32) throw new Error("Nick konta musi mieć od 3 do 32 znaków.");
+        if (password !== confirmPassword) throw new Error("Hasła nie są identyczne.");
         const { data, error } = await supabase.auth.signUp({
           email,
           password,
+          options: { data: { nickname: cleanNickname, display_name: cleanNickname } },
         });
 
         if (error) throw error;
