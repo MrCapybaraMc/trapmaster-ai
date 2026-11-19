@@ -234,7 +234,7 @@ const translations = {
     nick: "Twój nick Minecraft",
     sendApplication: "WYŚLIJ ZGŁOSZENIE",
     creatorsTitle: "TRAP CREATORS",
-    creatorsFuture: "Już wkrótce",
+    creatorsFuture: "Wkrótce",
     founder: "Założyciel strony",
     settingsTitle: "USTAWIENIA STRONY",
     language: "Język strony",
@@ -1111,7 +1111,7 @@ export default function Home() {
               <button onClick={() => openTab("forum")} className="hover:text-purple-400">
                 {t.forum}
               </button>
-              <button onClick={() => openTab("daily")} className="hover:text-amber-300">Daily</button>
+              <button onClick={() => openTab("daily")} className="hover:text-amber-300">{t.daily}</button>
 
               {loggedIn && (
                 <a href="/account" className="font-bold text-purple-300">
@@ -1495,7 +1495,7 @@ export default function Home() {
 
             {/* KARTA ADMINISTRACJI */}
             <div className="rounded-3xl border border-white/20 bg-black/50 p-8 backdrop-blur-md">
-              <div className="mb-5 text-3xl">Informations</div>
+              <div className="mb-5 text-3xl">👥</div>
               <h3 className="text-2xl font-black">{t.adminsTitle}</h3>
               <p className="mt-4 leading-7 text-white/85">{t.adminsText}</p>
             </div>
