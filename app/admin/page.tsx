@@ -22,6 +22,10 @@ type SupportTicket = {
   user_email: string | null;
   subject: string;
   message: string;
+  category?: string;
+  priority?: string;
+  related_order?: string | null;
+  page_url?: string | null;
   status: string;
   created_at: string;
 };
@@ -397,6 +401,9 @@ export default function AdminPage() {
                         <div className="flex flex-wrap justify-between gap-3">
                           <div>
                             <h3 className="text-xl font-bold">{ticket.subject}</h3>
+                            <p className="mt-1 text-xs text-cyan-200">Kategoria: {ticket.category || "inne"} · Priorytet: {ticket.priority || "normalny"}</p>
+                            {ticket.related_order && <p className="mt-1 text-xs text-gray-400">Zamówienie: {ticket.related_order}</p>}
+                            {ticket.page_url && <p className="mt-1 break-all text-xs text-gray-500">Strona: {ticket.page_url}</p>}
                             <p className="text-sm text-cyan-300 mt-1">
                               {ticket.user_email || "Brak e-maila"}
                             </p>
