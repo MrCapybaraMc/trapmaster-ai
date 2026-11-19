@@ -23,7 +23,6 @@ type Gift = {
 };
 
 export default function OwnerPage() {
-  const supabase = createClient();
   const router = useRouter();
 
   const [loading, setLoading] = useState(true);
@@ -42,6 +41,8 @@ export default function OwnerPage() {
   const [error, setError] = useState("");
 
   const checkOwner = useCallback(async () => {
+    // Create the browser client only after the page mounts, not during prerender.
+    const supabase = createClient();
     const { data: sessionData, error: sessionError } =
       await supabase.auth.getSession();
 
@@ -60,9 +61,10 @@ export default function OwnerPage() {
 
     setAuthorized(true);
     return true;
-  }, [supabase, router]);
+  }, [router]);
 
   const loadAdmins = useCallback(async () => {
+    const supabase = createClient();
     const { data, error } = await supabase.rpc("get_admin_users");
 
     if (error) {
@@ -70,9 +72,10 @@ export default function OwnerPage() {
     }
 
     setAdmins((data ?? []) as Admin[]);
-  }, [supabase]);
+  }, []);
 
   const loadGifts = useCallback(async () => {
+    const supabase = createClient();
     const { data, error } = await supabase.rpc("get_gifts");
 
     if (error) {
@@ -80,7 +83,7 @@ export default function OwnerPage() {
     }
 
     setGifts((data ?? []) as Gift[]);
-  }, [supabase]);
+  }, []);
 
   const refreshData = useCallback(async () => {
     setError("");
@@ -129,6 +132,7 @@ export default function OwnerPage() {
     setMessage("");
 
     try {
+      const supabase = createClient();
       const { data, error } = await supabase.rpc("set_admin_role", {
         p_email: adminEmail.trim(),
         p_role: role,
@@ -178,6 +182,7 @@ export default function OwnerPage() {
     setMessage("");
 
     try {
+      const supabase = createClient();
       const { data, error } = await supabase.rpc("grant_gift", {
         p_email: giftEmail.trim(),
         p_days: days,
