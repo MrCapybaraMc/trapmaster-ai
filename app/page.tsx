@@ -245,12 +245,12 @@ const translations = {
     status: "Status",
     date: "Data",
     actions: "Akcje",
-    noTickets: "Brak zgĹ‚oszeĹ„.",
-    noApplications: "Brak zgĹ‚oszeĹ„ rekrutacyjnych.",
+    noTickets: "Brak zgłoszeń.",
+    noApplications: "Brak zgłoszeń rekrutacyjnych.",
     open: "Otwarte",
     progress: "W trakcie",
     closed: "Zamknięte",
-    pending: "OczekujÄ…ce",
+    pending: "Oczekujące",
     accepted: "Zaakceptowane",
     rejected: "Odrzucone",
     paused: "Strona tymczasowo nieczynna",
@@ -471,6 +471,19 @@ export default function Home() {
   const t = translations[language];
   const isAdmin = userRole === "admin" || userRole === "owner";
 
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    let visitId = sessionStorage.getItem("trapmasters_visit_id");
+    if (!visitId) {
+      visitId = crypto.randomUUID();
+      sessionStorage.setItem("trapmasters_visit_id", visitId);
+    }
+    supabase.rpc("track_site_visit", {
+      p_session_id: visitId,
+      p_route: window.location.pathname,
+    });
+  }, [supabase]);
+
   // Ustawienia jÄ™zyka i dĹşwiÄ™ku.
   useEffect(() => {
     const savedMusic = localStorage.getItem(MUSIC_KEY);
@@ -670,7 +683,7 @@ export default function Home() {
 
       supabase
         .from("recruitment_applications")
-        .select("id,user_id,minecraft_nick,experience,motivation,status,created_at")
+        .select("id,user_id,minecraft_nick,experience,motivation,likes_zenciaka,applicant_age,first_name,about,status,created_at")
         .order("created_at", { ascending: false })
         .limit(100),
     ]);
@@ -899,7 +912,7 @@ export default function Home() {
     } catch {
       setOrderMessage(
         language === "pl"
-          ? "Nie udaĹ‚o siÄ™ skopiowaÄ‡ komendy. Skopiuj jÄ… rÄ™cznie."
+          ? "Nie udało się skopiować komendy. Skopiuj ją ręcznie."
           : "Could not copy the command. Please copy it manually."
       );
     }
@@ -939,7 +952,7 @@ export default function Home() {
     setOrderSuccess(true);
     setOrderMessage(
       language === "pl"
-        ? `ZamĂłwienie zostaĹ‚o wysĹ‚ane! Numer: ${result.order_id}`
+        ? `Zamówienie zostało wysłane! Numer: ${result.order_id}`
         : `Order submitted! Order number: ${result.order_id}`
     );
   }
@@ -1093,7 +1106,7 @@ export default function Home() {
                 href="/account"
                 className="rounded-xl border border-green-400/40 bg-green-500/15 px-5 py-3 text-sm font-bold text-green-300"
               >
-                âś“ {t.myAccount}
+                👤 {t.myAccount}
               </a>
             ) : (
               <a
