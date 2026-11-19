@@ -29,6 +29,7 @@ type ForumPost = {
   id: string;
   user_id: string;
   author_name: string;
+  author_avatar_url?: string | null;
   content: string;
   created_at: string;
 };
@@ -54,6 +55,10 @@ type RecruitmentApplication = {
   minecraft_nick: string;
   experience: string;
   motivation: string;
+  likes_zenciaka?: boolean;
+  applicant_age?: number | null;
+  first_name?: string | null;
+  about?: string | null;
   status: string;
   created_at: string;
 };
@@ -451,6 +456,10 @@ export default function Home() {
   const [applicationNick, setApplicationNick] = useState("");
   const [applicationExperience, setApplicationExperience] = useState("");
   const [applicationMotivation, setApplicationMotivation] = useState("");
+  const [likesZenciaka, setLikesZenciaka] = useState(false);
+  const [applicantAge, setApplicantAge] = useState("");
+  const [applicantFirstName, setApplicantFirstName] = useState("");
+  const [applicantAbout, setApplicantAbout] = useState("");
   const [applicationSending, setApplicationSending] = useState(false);
   const [applicationMessage, setApplicationMessage] = useState("");
 
@@ -620,7 +629,7 @@ export default function Home() {
 
     const { data, error } = await supabase
       .from("forum_posts")
-      .select("id,user_id,author_name,content,created_at")
+      .select("id,user_id,author_name,author_avatar_url,content,created_at")
       .order("created_at", { ascending: false })
       .limit(100);
 
@@ -774,7 +783,11 @@ export default function Home() {
     if (
       applicationNick.trim().length < 1 ||
       applicationExperience.trim().length < 10 ||
-      applicationMotivation.trim().length < 10
+      applicationMotivation.trim().length < 10 ||
+      applicantFirstName.trim().length < 1 ||
+      !/^\\d{1,2}$/.test(applicantAge) ||
+      Number(applicantAge) < 13 || Number(applicantAge) > 99 ||
+      applicantAbout.trim().split(/[.!?]+/).filter((sentence) => sentence.trim().length > 0).length < 5
     ) {
       setApplicationMessage(t.fillFields);
       return;
@@ -790,6 +803,10 @@ export default function Home() {
         minecraft_nick: applicationNick.trim(),
         experience: applicationExperience.trim(),
         motivation: applicationMotivation.trim(),
+        likes_zenciaka: likesZenciaka,
+        applicant_age: Number(applicantAge),
+        first_name: applicantFirstName.trim(),
+        about: applicantAbout.trim(),
       });
 
     setApplicationSending(false);
@@ -802,6 +819,10 @@ export default function Home() {
     setApplicationNick("");
     setApplicationExperience("");
     setApplicationMotivation("");
+    setLikesZenciaka(false);
+    setApplicantAge("");
+    setApplicantFirstName("");
+    setApplicantAbout("");
     setApplicationMessage(t.success);
   }
 
@@ -939,7 +960,6 @@ export default function Home() {
     { id: "help", label: t.help },
     { id: "recruitment", label: t.recruitment },
     { id: "creators", label: t.creators },
-    { id: "settings", label: t.settings },
   ];
 
   if (isAdmin) {
@@ -1500,9 +1520,10 @@ export default function Home() {
                         className="rounded-2xl border border-purple-400/20 bg-[#11111c]/95 p-5"
                       >
                         <div className="flex flex-wrap items-center justify-between gap-3">
-                          <span className="font-bold text-purple-200">
-                            {post.author_name}
-                          </span>
+                          <div className="flex min-w-0 items-center gap-3">
+                            {post.author_avatar_url ? <img src={post.author_avatar_url} alt="" className="h-10 w-10 rounded-full border border-purple-300/30 object-cover" /> : <div className="grid h-10 w-10 place-items-center rounded-full bg-purple-900 text-lg">👤</div>}
+                            <span className="truncate font-bold text-purple-200">{post.author_name}</span>
+                          </div>
                           <span className="text-xs text-white/45">
                             {formatDate(post.created_at, language)}
                           </span>
@@ -1543,9 +1564,7 @@ export default function Home() {
                         className="rounded-2xl border border-purple-400/25 bg-[#11111c] p-6"
                       >
                         <div className="flex items-center gap-4">
-                          <div className="flex h-14 w-14 items-center justify-center rounded-xl bg-purple-950 text-3xl">
-                            â›Źď¸Ź
-                          </div>
+                          <div className="flex h-14 w-14 items-center justify-center rounded-xl bg-purple-950 text-3xl">🧑‍💻</div>
                           <div className="min-w-0">
                             <h4 className="truncate font-black text-purple-200">
                               {trapper.display_name}
@@ -1662,39 +1681,34 @@ export default function Home() {
 
                   <div className="mt-8 space-y-5">
                     <label className="block text-sm font-bold">
+                      Czy lubisz zenciaka?
+                      <select value={likesZenciaka ? "yes" : "no"} onChange={(e) => setLikesZenciaka(e.target.value === "yes")} className="mt-2 w-full rounded-xl border border-white/20 bg-black/70 px-4 py-4 font-normal">
+                        <option value="yes">Tak</option><option value="no">Nie</option>
+                      </select>
+                    </label>
+                    <label className="block text-sm font-bold">
+                      Ile masz lat?
+                      <input type="number" min={13} max={99} value={applicantAge} onChange={(e) => setApplicantAge(e.target.value)} className="mt-2 w-full rounded-xl border border-white/20 bg-black/70 px-4 py-4 font-normal" />
+                    </label>
+                    <label className="block text-sm font-bold">
+                      Jak masz na imię?
+                      <input value={applicantFirstName} onChange={(e) => setApplicantFirstName(e.target.value)} maxLength={60} className="mt-2 w-full rounded-xl border border-white/20 bg-black/70 px-4 py-4 font-normal" />
+                    </label>
+                    <label className="block text-sm font-bold">
                       {t.nick}
-                      <input
-                        value={applicationNick}
-                        onChange={(e) => setApplicationNick(e.target.value)}
-                        maxLength={32}
-                        className="mt-2 w-full rounded-xl border border-white/20 bg-black/70 px-4 py-4 font-normal outline-none focus:border-purple-400"
-                      />
+                      <input value={applicationNick} onChange={(e) => setApplicationNick(e.target.value)} maxLength={32} className="mt-2 w-full rounded-xl border border-white/20 bg-black/70 px-4 py-4 font-normal outline-none focus:border-purple-400" />
                     </label>
-
                     <label className="block text-sm font-bold">
-                      {t.experience}
-                      <textarea
-                        value={applicationExperience}
-                        onChange={(e) => setApplicationExperience(e.target.value)}
-                        minLength={10}
-                        maxLength={2000}
-                        rows={4}
-                        placeholder={t.experiencePlaceholder}
-                        className="mt-2 w-full rounded-xl border border-white/20 bg-black/70 px-4 py-4 font-normal outline-none focus:border-purple-400"
-                      />
+                      Czy masz doświadczenie?
+                      <textarea value={applicationExperience} onChange={(e) => setApplicationExperience(e.target.value)} minLength={10} maxLength={2000} rows={3} placeholder="Opisz swoje doświadczenie..." className="mt-2 w-full rounded-xl border border-white/20 bg-black/70 px-4 py-4 font-normal outline-none focus:border-purple-400" />
                     </label>
-
                     <label className="block text-sm font-bold">
-                      {t.motivation}
-                      <textarea
-                        value={applicationMotivation}
-                        onChange={(e) => setApplicationMotivation(e.target.value)}
-                        minLength={10}
-                        maxLength={2000}
-                        rows={4}
-                        placeholder={t.motivationPlaceholder}
-                        className="mt-2 w-full rounded-xl border border-white/20 bg-black/70 px-4 py-4 font-normal outline-none focus:border-purple-400"
-                      />
+                      Opowiedz coś o sobie (minimum 5 zdań).
+                      <textarea value={applicantAbout} onChange={(e) => setApplicantAbout(e.target.value)} minLength={100} maxLength={2000} rows={5} placeholder="Napisz minimum pięć zdań o sobie..." className="mt-2 w-full rounded-xl border border-white/20 bg-black/70 px-4 py-4 font-normal outline-none focus:border-purple-400" />
+                    </label>
+                    <label className="block text-sm font-bold">
+                      Dlaczego chcesz dołączyć?
+                      <textarea value={applicationMotivation} onChange={(e) => setApplicationMotivation(e.target.value)} minLength={10} maxLength={2000} rows={3} placeholder="Napisz, dlaczego chcesz dołączyć..." className="mt-2 w-full rounded-xl border border-white/20 bg-black/70 px-4 py-4 font-normal outline-none focus:border-purple-400" />
                     </label>
 
                     {applicationMessage && (
