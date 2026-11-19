@@ -12,6 +12,7 @@ export default function SiteSettings() {
   const [sound, setSound] = useState(true);
   const [email, setEmail] = useState("");
   const [nick, setNick] = useState("");
+  const [avatarUrl, setAvatarUrl] = useState<string | null>(null);
   const [hasAccess, setHasAccess] = useState(false);
   const [loading, setLoading] = useState(true);
 
@@ -23,9 +24,7 @@ export default function SiteSettings() {
       setLanguage(savedLanguage);
     }
 
-    if (savedSound === "false") {
-      setSound(false);
-    }
+    setSound(savedSound === "true");
 
     const supabase = createClient();
 
@@ -35,11 +34,9 @@ export default function SiteSettings() {
 
       if (user) {
         setEmail(user.email ?? "");
-        setNick(
-          user.user_metadata?.minecraft_nick ??
-          user.email?.split("@")[0] ??
-          ""
-        );
+        const { data: profile } = await supabase.from("profiles").select("nickname,avatar_url").eq("user_id", user.id).maybeSingle();
+        setNick(profile?.nickname || user.user_metadata?.minecraft_nick || user.email?.split("@")[0] || "Gracz");
+        setAvatarUrl(profile?.avatar_url || null);
 
         const { data: access } = await supabase.rpc(
           "has_trapmaster_access"
@@ -57,8 +54,15 @@ export default function SiteSettings() {
       loadAccount();
     });
 
+    const onLanguage = (event: Event) => setLanguage((event as CustomEvent<Language>).detail === "en" ? "en" : "pl");
+    const onSound = (event: Event) => setSound(Boolean((event as CustomEvent<boolean>).detail));
+    window.addEventListener("trapmasters-language-change", onLanguage);
+    window.addEventListener("trapmasters-music-change", onSound);
+
     return () => {
       listener.subscription.unsubscribe();
+      window.removeEventListener("trapmasters-language-change", onLanguage);
+      window.removeEventListener("trapmasters-music-change", onSound);
     };
   }, []);
 
@@ -173,12 +177,10 @@ export default function SiteSettings() {
               </p>
             ) : email ? (
               <>
-                <p className="break-all text-sm text-gray-300">
-                  {email}
-                </p>
-                <p className="mt-1 text-sm text-gray-300">
-                  Minecraft: {nick}
-                </p>
+                <div className="flex items-center gap-3">
+                  {avatarUrl ? <img src={avatarUrl} alt="" className="h-11 w-11 rounded-full border border-red-400/40 object-cover" /> : <span className="grid h-11 w-11 place-items-center rounded-full bg-red-500/15 text-red-200"><svg viewBox="0 0 24 24" aria-hidden="true" className="h-6 w-6" fill="none" stroke="currentColor" strokeWidth="1.8"><circle cx="12" cy="8" r="3.5"/><path d="M5 20c.7-3.5 3.1-5.3 7-5.3s6.3 1.8 7 5.3"/></svg></span>}
+                  <div className="min-w-0"><p className="truncate font-semibold text-white">{nick}</p><p className="break-all text-xs text-gray-400">{email}</p></div>
+                </div>
                 <p className="mt-2 text-sm">
                   {text.access}:{" "}
                   <span
