@@ -522,7 +522,7 @@ export default function TrapmasterAIPage() {
 
       <audio
         ref={secretAudioRef}
-        src="/Songs/ZENEK.mp3"
+        src="/Songs/Zenek.mp3"
         preload="auto"
         onEnded={() => setSecretPlaying(false)}
       />
