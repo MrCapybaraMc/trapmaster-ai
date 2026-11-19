@@ -90,14 +90,14 @@ export default function SiteSettings() {
           language: "Język",
           sound: "Muzyka",
           account: "Konto",
-          loading: "Ĺadowanie...",
+          loading: "Ładowanie...",
           guest: "Nie jesteś zalogowany",
           access: "Dostęp TrapMaster",
           active: "Aktywny",
           inactive: "Nieaktywny",
           accountPage: "Przejdź do konta",
-          on: "WĹ‚Ä…czony",
-          off: "WyĹ‚Ä…czony",
+          on: "Włączony",
+          off: "Wyłączony",
         }
       : {
           settings: "Settings",
