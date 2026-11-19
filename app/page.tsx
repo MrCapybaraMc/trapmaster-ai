@@ -1184,11 +1184,11 @@ export default function Home() {
                 ))}
               </div>
 
-              <p className="mt-8 text-center text-sm text-white/70">
-                {language === "pl"
-                  ? "Płatności przyjmowane są w dolarach serwerowych BananaSMP.pl."
-                  : "Payments are accepted in BananaSMP.pl server dollars."}
-              </p>
+    <p className="mt-8 text-center text-sm text-white/70">
+  {language === "pl"
+    ? "Płatności przyjmowane są w dolarach serwerowych BananaSMP.pl."
+    : "Payments are accepted in BananaSMP.pl server dollars."}
+</p>
             </section>
 
             {/* PĹATNOĹšÄ† */}
@@ -1387,29 +1387,41 @@ export default function Home() {
         {/* INFORMACJE */}
         <section id="informacje" className="mx-auto max-w-6xl px-6 py-24">
           <div className="grid gap-6 md:grid-cols-2">
+
+            {/* KARTA INFORMACYJNA */}
             <div className="rounded-3xl border border-white/20 bg-black/50 p-8 backdrop-blur-md">
-              <div className="mb-5 text-3xl">Informacjie</div>
+              <div className="mb-5 text-3xl">ℹ️</div>
               <h3 className="text-2xl font-black">{t.infoTitle}</h3>
+
               <p className="mt-4 leading-7 text-white/85">{t.infoText}</p>
+
+              <p className="mt-4 leading-7 text-white/85">
+                {language === "pl"
+                  ? "TRAPMASTERS jest niezależnym projektem społecznościowym. Nie jest oficjalną stroną BananaSMP.pl i nie jest przez ten serwer prowadzony ani wspierany."
+                  : "TRAPMASTERS is an independent community project. It is not the official BananaSMP.pl website and is not operated or endorsed by that server."}
+              </p>
+
               <p className="mt-4 text-sm text-white/70">
                 {language === "pl" ? "Kontakt: " : "Contact: "}
                 mrcapybarasyt@gmail.com
               </p>
             </div>
 
+            {/* KARTA ADMINISTRACJI */}
             <div className="rounded-3xl border border-white/20 bg-black/50 p-8 backdrop-blur-md">
               <div className="mb-5 text-3xl">Informations</div>
               <h3 className="text-2xl font-black">{t.adminsTitle}</h3>
               <p className="mt-4 leading-7 text-white/85">{t.adminsText}</p>
             </div>
-          </div>
-        </section>
 
-        {/* ZAKĹADKI SPOĹECZNOĹšCI */}
+          </div>
+          </section>
+
         <section
           id="community"
           className="relative overflow-hidden border-y border-purple-400/20 bg-[#090914]/95 px-6 py-20 backdrop-blur-md"
         >
+        
 
 
           <div className="relative z-10 mx-auto max-w-7xl">
