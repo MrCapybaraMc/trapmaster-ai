@@ -1,4 +1,3 @@
-
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
@@ -6,319 +5,132 @@ import { createClient } from "../../lib/supabase/client";
 
 export default function AccountPage() {
   const [supabase] = useState(() => createClient());
-
-  const [user, setUser] = useState(null);
-  const [orders, setOrders] = useState([]);
+  const [user, setUser] = useState<any>(null);
+  const [profile, setProfile] = useState<any>(null);
+  const [orders, setOrders] = useState<any[]>([]);
+  const [nickname, setNickname] = useState("");
   const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
+  const [uploading, setUploading] = useState(false);
   const [message, setMessage] = useState("");
-  const [signingOut, setSigningOut] = useState(false);
+  const [busy, setBusy] = useState(false);
 
-  const loadOrders = useCallback(async () => {
-    const { data, error } = await supabase
-      .from("orders")
-      .select(
-        "id, minecraft_nick, package_type, price_m, status, created_at, expires_at"
-      )
-      .order("created_at", { ascending: false });
-
-    if (error) {
-      setMessage("Nie udało się pobrać zamówień. Spróbuj ponownie.");
-      setOrders([]);
-    } else {
-      setMessage("");
-      setOrders(data || []);
-    }
+  const refresh = useCallback(async () => {
+    const { data: auth } = await supabase.auth.getUser();
+    if (!auth.user) { setUser(null); setLoading(false); return; }
+    setUser(auth.user);
+    const [{ data: profileData }, { data: orderData }] = await Promise.all([
+      supabase.from("profiles").select("user_id,nickname,avatar_url,points,daily_streak,last_daily_claim").eq("user_id", auth.user.id).maybeSingle(),
+      supabase.from("orders").select("id,minecraft_nick,package_type,price_m,status,created_at,expires_at").order("created_at", { ascending: false })
+    ]);
+    setProfile(profileData);
+    setNickname(profileData?.nickname || auth.user.user_metadata?.minecraft_nick || "");
+    setOrders(orderData || []);
+    setLoading(false);
   }, [supabase]);
 
-  useEffect(() => {
-    let mounted = true;
+  useEffect(() => { refresh(); }, [refresh]);
 
-    async function initialize() {
-      const { data, error } = await supabase.auth.getUser();
+  async function saveProfile(e: any) {
+    e.preventDefault();
+    const clean = nickname.trim();
+    if (clean.length < 1 || clean.length > 32) { setMessage("Nick musi mieć od 1 do 32 znaków."); return; }
+    setSaving(true); setMessage("");
+    const { error } = await supabase.from("profiles").upsert({ user_id: user.id, nickname: clean, updated_at: new Date().toISOString() });
+    if (error) setMessage(error.message);
+    else { setMessage("Profil został zapisany."); await refresh(); }
+    setSaving(false);
+  }
 
-      if (!mounted) return;
-
-      if (error || !data.user) {
-        setUser(null);
-        setLoading(false);
-        return;
-      }
-
-      setUser(data.user);
-
-      const { data: orderData, error: orderError } = await supabase
-        .from("orders")
-        .select(
-          "id, minecraft_nick, package_type, price_m, status, created_at, expires_at"
-        )
-        .order("created_at", { ascending: false });
-
-      if (!mounted) return;
-
-      if (orderError) {
-        setMessage("Nie udało się pobrać zamówień. Spróbuj ponownie.");
-      } else {
-        setOrders(orderData || []);
-      }
-
-      setLoading(false);
+  async function uploadAvatar(e: any) {
+    const file = e.target.files?.[0];
+    if (!file || !user) return;
+    if (!["image/png","image/jpeg","image/webp"].includes(file.type) || file.size > 3 * 1024 * 1024) {
+      setMessage("Wybierz PNG, JPG lub WEBP do 3 MB."); return;
     }
+    setUploading(true); setMessage("");
+    const ext = file.type === "image/png" ? "png" : file.type === "image/webp" ? "webp" : "jpg";
+    const path = user.id + "/avatar." + ext;
+    const { error: uploadError } = await supabase.storage.from("avatars").upload(path, file, { upsert: true, contentType: file.type });
+    if (uploadError) { setMessage(uploadError.message); setUploading(false); return; }
+    const { data } = supabase.storage.from("avatars").getPublicUrl(path);
+    const avatarUrl = data.publicUrl + "?v=" + Date.now();
+    const { error } = await supabase.from("profiles").upsert({ user_id: user.id, nickname: nickname.trim() || profile?.nickname || "Gracz", avatar_url: avatarUrl, updated_at: new Date().toISOString() });
+    setMessage(error ? error.message : "Zdjęcie profilowe zostało zmienione.");
+    await refresh(); setUploading(false); e.target.value = "";
+  }
 
-    initialize();
+  async function claimDaily() {
+    setBusy(true); setMessage("");
+    const { data, error } = await supabase.rpc("claim_daily_reward");
+    if (error) setMessage(error.message);
+    else {
+      const result = Array.isArray(data) ? data[0] : data;
+      setMessage("Odebrano " + result.points_awarded + " punktów! Seria: " + result.streak_days + " dni.");
+      await refresh();
+    }
+    setBusy(false);
+  }
 
-    const {
-      data: { subscription },
-    } = supabase.auth.onAuthStateChange((_event, session) => {
-      if (!mounted) return;
-      setUser(session?.user || null);
-
-      if (!session?.user) {
-        setOrders([]);
-      }
-    });
-
-    return () => {
-      mounted = false;
-      subscription.unsubscribe();
-    };
-  }, [supabase]);
+  async function redeemAccess() {
+    if (!window.confirm("Wymienić 2150 punktów na 24 godziny dostępu TrapMaster?")) return;
+    setBusy(true); setMessage("");
+    const { data, error } = await supabase.rpc("redeem_daily_access");
+    if (error) setMessage(error.message);
+    else { setMessage("Wymieniono punkty! Dostęp aktywny do: " + new Date(data.expires_at).toLocaleString("pl-PL")); await refresh(); }
+    setBusy(false);
+  }
 
   async function handleSignOut() {
-    setSigningOut(true);
-
-    const { error } = await supabase.auth.signOut();
-
-    if (error) {
-      setMessage("Nie udało się wylogować. Spróbuj ponownie.");
-      setSigningOut(false);
-      return;
-    }
-
+    await supabase.auth.signOut();
     window.location.href = "/";
   }
 
-  function statusLabel(status) {
-    if (status === "pending") return "Oczekujące";
-    if (status === "approved") return "Zaakceptowane";
-    if (status === "rejected") return "Odrzucone";
-    return status;
-  }
+  if (loading) return <main className="min-h-screen bg-[#070910] text-white grid place-items-center">Ładowanie konta...</main>;
+  if (!user) return <main className="min-h-screen bg-[#070910] text-white grid place-items-center p-5"><div className="rounded-3xl border border-white/10 bg-white/5 p-8 text-center"><h1 className="text-3xl font-black">Moje konto</h1><p className="mt-4 text-gray-400">Zaloguj się, aby zobaczyć swój profil.</p><a href="/register" className="mt-6 inline-block rounded-xl bg-purple-600 px-7 py-3 font-bold">ZALOGUJ SIĘ</a></div></main>;
 
-  function statusStyle(status) {
-    if (status === "pending") {
-      return "bg-yellow-500/15 text-yellow-300 border-yellow-400/30";
-    }
-
-    if (status === "approved") {
-      return "bg-green-500/15 text-green-300 border-green-400/30";
-    }
-
-    return "bg-red-500/15 text-red-300 border-red-400/30";
-  }
-
-  function packageLabel(type) {
-    if (type === "week") return "Tydzień";
-    if (type === "month") return "Miesiąc";
-    if (type === "forever") return "Na zawsze";
-    return type;
-  }
-
-  if (loading) {
-    return (
-      <main className="min-h-screen bg-[#070910] text-white flex items-center justify-center">
-        Ładowanie konta...
-      </main>
-    );
-  }
-
-  if (!user) {
-    return (
-      <main className="min-h-screen bg-[#070910] text-white flex items-center justify-center px-5">
-        <div className="max-w-md w-full rounded-3xl border border-white/10 bg-white/5 p-8 text-center">
-          <h1 className="text-3xl font-black">Moje konto</h1>
-          <p className="mt-4 text-gray-400">
-            Aby zobaczyć swoje konto i zamówienia, musisz się zalogować.
-          </p>
-          <a
-            href="/register"
-            className="mt-7 inline-block rounded-xl bg-purple-600 px-8 py-4 font-bold hover:bg-purple-500"
-          >
-            ZALOGUJ SIĘ
-          </a>
-          <a
-            href="/"
-            className="mt-5 block text-sm text-gray-400 underline"
-          >
-            Wróć na stronę główną
-          </a>
-        </div>
-      </main>
-    );
-  }
+  const canClaim = profile?.last_daily_claim !== new Date().toISOString().slice(0,10);
+  const balance = profile?.points ?? 0;
 
   return (
-    <main className="min-h-screen bg-[#070910] text-white px-5 py-10 md:px-10">
+    <main className="min-h-screen bg-[#070910] px-5 py-10 text-white md:px-10">
       <div className="mx-auto max-w-6xl">
-        <header className="flex flex-wrap items-center justify-between gap-5 border-b border-white/10 pb-7">
-          <div>
-            <a href="/" className="text-xl font-black tracking-wider">
-              TRAP<span className="text-purple-500">MASTERS</span>
-            </a>
-            <h1 className="mt-5 text-4xl font-black">Moje konto</h1>
-            <p className="mt-2 text-gray-400">
-              Zarządzaj swoim kontem i sprawdzaj zamówienia.
-            </p>
-          </div>
-
-          <button
-            onClick={handleSignOut}
-            disabled={signingOut}
-            className="rounded-xl border border-red-400/30 bg-red-500/10 px-5 py-3 font-bold text-red-300 hover:bg-red-500/20 disabled:opacity-50"
-          >
-            {signingOut ? "Wylogowywanie..." : "Wyloguj się"}
-          </button>
+        <header className="flex flex-wrap items-center justify-between gap-4 border-b border-white/10 pb-7">
+          <div><a href="/" className="text-xl font-black">TRAP<span className="text-purple-400">MASTERS</span></a><h1 className="mt-4 text-4xl font-black">Moje konto</h1><p className="mt-2 text-gray-400">Twój profil, Daily i historia zamówień.</p></div>
+          <button onClick={handleSignOut} className="rounded-xl border border-red-400/30 bg-red-500/10 px-5 py-3 font-bold text-red-300">Wyloguj się</button>
         </header>
 
-        <section className="mt-8 rounded-2xl border border-purple-400/20 bg-purple-950/20 p-6">
-          <p className="text-sm font-bold uppercase tracking-widest text-purple-300">
-            Informacje o koncie
-          </p>
-          <p className="mt-4 text-sm text-gray-400">Zalogowany użytkownik</p>
-          <p className="mt-1 break-all text-lg font-bold">{user.email}</p>
-          <p className="mt-4 text-sm text-gray-400">
-            Liczba Twoich zamówień:{" "}
-            <span className="font-bold text-white">{orders.length}</span>
-          </p>
-        </section>
-
-        <section className="mt-10">
-          <div className="flex flex-wrap items-center justify-between gap-4">
-            <div>
-              <h2 className="text-3xl font-black">Moje zamówienia</h2>
-              <p className="mt-2 text-gray-400">
-                Tutaj znajdziesz historię swoich zakupów.
-              </p>
+        <section className="mt-8 grid gap-6 lg:grid-cols-[1.1fr_.9fr]">
+          <div className="rounded-3xl border border-purple-400/20 bg-gradient-to-br from-purple-950/60 to-[#10121d] p-6 md:p-8">
+            <div className="flex flex-wrap items-center gap-5">
+              {profile?.avatar_url ? <img src={profile.avatar_url} alt="Avatar" className="h-24 w-24 rounded-2xl border border-white/15 object-cover" /> : <div className="grid h-24 w-24 place-items-center rounded-2xl bg-purple-900 text-4xl">👤</div>}
+              <div><p className="text-xs font-bold uppercase tracking-[.25em] text-purple-300">Profil gracza</p><h2 className="mt-2 text-2xl font-black">{profile?.nickname || "Gracz"}</h2><p className="mt-1 text-sm text-white/50">{user.email}</p></div>
             </div>
-
-            <button
-              onClick={loadOrders}
-              className="rounded-xl bg-purple-600 px-5 py-3 font-bold hover:bg-purple-500"
-            >
-              Odśwież
-            </button>
+            <form onSubmit={saveProfile} className="mt-7 space-y-3">
+              <label className="block text-sm font-semibold text-gray-300">Nick / nazwa wyświetlana<input value={nickname} onChange={e=>setNickname(e.target.value)} maxLength={32} className="mt-2 w-full rounded-xl border border-white/10 bg-black/30 p-3 text-white outline-none focus:border-purple-400" placeholder="Twój nick" /></label>
+              <div className="flex flex-wrap gap-3"><button disabled={saving} className="rounded-xl bg-purple-600 px-5 py-3 font-bold disabled:opacity-50">{saving ? "Zapisywanie..." : "Zapisz nick"}</button><label className="cursor-pointer rounded-xl border border-white/15 bg-white/5 px-5 py-3 font-bold">{uploading ? "Wysyłanie..." : "Zmień avatar"}<input type="file" accept="image/png,image/jpeg,image/webp" onChange={uploadAvatar} disabled={uploading} className="hidden" /></label></div>
+              <p className="text-xs text-white/40">PNG, JPG lub WEBP • maks. 3 MB</p>
+            </form>
           </div>
 
-          {message && (
-            <div className="mt-6 rounded-xl border border-red-400/30 bg-red-500/10 p-4 text-red-200">
-              {message}
-            </div>
-          )}
-
-          {orders.length === 0 && !message ? (
-            <div className="mt-7 rounded-2xl border border-white/10 bg-white/5 p-8 text-center">
-              <div className="text-4xl">📦</div>
-              <h3 className="mt-4 text-xl font-bold">
-                Nie masz jeszcze zamówień
-              </h3>
-              <p className="mt-2 text-gray-400">
-                Wybierz pakiet na stronie głównej, aby złożyć pierwsze zamówienie.
-              </p>
-              <a
-                href="/#oferta"
-                className="mt-6 inline-block rounded-xl bg-purple-600 px-7 py-3 font-bold"
-              >
-                ZOBACZ OFERTĘ
-              </a>
-            </div>
-          ) : (
-            <div className="mt-7 space-y-4">
-              {orders.map((order) => (
-                <article
-                  key={order.id}
-                  className="rounded-2xl border border-white/10 bg-white/5 p-6"
-                >
-                  <div className="flex flex-wrap items-center justify-between gap-4">
-                    <div>
-                      <p className="text-sm text-gray-400">
-                        Nick Minecraft
-                      </p>
-                      <h3 className="mt-1 text-2xl font-black">
-                        {order.minecraft_nick}
-                      </h3>
-                    </div>
-
-                    <span
-                      className={`rounded-lg border px-4 py-2 text-sm font-bold ${statusStyle(
-                        order.status
-                      )}`}
-                    >
-                      {statusLabel(order.status)}
-                    </span>
-                  </div>
-
-                  <div className="mt-6 grid grid-cols-2 gap-5 md:grid-cols-3">
-                    <div>
-                      <p className="text-sm text-gray-400">Pakiet</p>
-                      <p className="mt-1 font-bold">
-                        {packageLabel(order.package_type)}
-                      </p>
-                    </div>
-
-                    <div>
-                      <p className="text-sm text-gray-400">Cena</p>
-                      <p className="mt-1 font-bold">{order.price_m}M</p>
-                    </div>
-
-                    <div>
-                      <p className="text-sm text-gray-400">
-                        Data zamówienia
-                      </p>
-                      <p className="mt-1 font-bold">
-                        {new Date(order.created_at).toLocaleString("pl-PL")}
-                      </p>
-                    </div>
-                  </div>
-
-                  {order.expires_at && order.status === "approved" && (
-                    <p className="mt-5 text-sm text-gray-400">
-                      Dostęp wygasa:{" "}
-                      <span className="font-bold text-white">
-                        {new Date(order.expires_at).toLocaleString("pl-PL")}
-                      </span>
-                    </p>
-                  )}
-
-                  {order.status === "pending" && (
-                    <p className="mt-5 text-sm text-yellow-200">
-                      Twoje zamówienie czeka na sprawdzenie płatności przez administrację.
-                    </p>
-                  )}
-
-                  {order.status === "approved" && (
-                    <p className="mt-5 text-sm text-green-200">
-                      Zamówienie zostało zaakceptowane.
-                    </p>
-                  )}
-
-                  {order.status === "rejected" && (
-                    <p className="mt-5 text-sm text-red-200">
-                      Zamówienie zostało odrzucone. W razie pytań skontaktuj się z administracją.
-                    </p>
-                  )}
-                </article>
-              ))}
-            </div>
-          )}
+          <div className="rounded-3xl border border-amber-400/20 bg-gradient-to-br from-amber-950/40 to-[#11131c] p-6 md:p-8">
+            <p className="text-xs font-bold uppercase tracking-[.25em] text-amber-300">Daily rewards</p>
+            <div className="mt-3 flex items-end gap-2"><span className="text-5xl font-black tabular-nums">{balance}</span><span className="pb-1 text-white/50">punktów</span></div>
+            <div className="mt-5 grid grid-cols-2 gap-3"><div className="rounded-xl bg-black/25 p-4"><p className="text-xs text-white/50">Seria logowań</p><p className="mt-1 text-2xl font-black">{profile?.daily_streak || 0} dni</p></div><div className="rounded-xl bg-black/25 p-4"><p className="text-xs text-white/50">Dzisiejsza nagroda</p><p className="mt-1 text-2xl font-black">{(profile?.daily_streak || 0) >= 13 ? "150" : (profile?.daily_streak || 0) >= 4 ? "100" : "50"} pkt</p></div></div>
+            <button onClick={claimDaily} disabled={busy || !canClaim} className="mt-5 w-full rounded-xl bg-amber-400 px-5 py-4 font-black text-black disabled:cursor-not-allowed disabled:opacity-40">{canClaim ? "ODBIERZ DZIENNĄ NAGRODĘ" : "NAGRODA ODEBRANA DZISIAJ"}</button>
+            <div className="mt-5 rounded-xl border border-white/10 bg-black/20 p-4 text-sm text-white/65"><p>1–4 dni: 50 pkt/dzień</p><p>5–13 dni: 100 pkt/dzień</p><p>Od 14. dnia: 150 pkt/dzień</p></div>
+            <button onClick={redeemAccess} disabled={busy || balance < 2150} className="mt-4 w-full rounded-xl border border-purple-300/30 bg-purple-600/20 px-5 py-4 font-bold text-purple-100 disabled:opacity-40">Wymień 2150 pkt na 24h TrapMaster</button>
+            <p className="mt-2 text-xs text-white/40">Przy regularnym odbieraniu nagród próg można osiągnąć w około 20 dni.</p>
+          </div>
         </section>
 
-        <footer className="mt-14 border-t border-white/10 pt-7 text-center">
-          <a href="/" className="text-sm text-gray-400 underline">
-            Wróć na stronę główną
-          </a>
-          <p className="mt-4 text-xs text-gray-600">
-            © 2026 TRAPMASTERS
-          </p>
-        </footer>
+        {message && <p className="mt-5 rounded-xl border border-white/10 bg-white/5 p-4 text-sm text-gray-200">{message}</p>}
+
+        <section className="mt-10">
+          <div className="flex flex-wrap items-end justify-between gap-3"><div><h2 className="text-3xl font-black">Moje zamówienia</h2><p className="mt-2 text-gray-400">Historia zakupów i status dostępu.</p></div><span className="text-sm text-white/50">{orders.length} zamówień</span></div>
+          {orders.length === 0 ? <p className="mt-6 rounded-2xl border border-white/10 bg-white/5 p-7 text-gray-400">Nie masz jeszcze zamówień.</p> : <div className="mt-6 space-y-3">{orders.map(order=><article key={order.id} className="flex flex-wrap items-center justify-between gap-4 rounded-2xl border border-white/10 bg-white/5 p-5"><div><h3 className="font-bold">{order.minecraft_nick} · {order.package_type}</h3><p className="mt-1 text-sm text-gray-400">{new Date(order.created_at).toLocaleString("pl-PL")} · {order.price_m}M</p></div><span className={order.status==="approved"?"text-green-300":order.status==="rejected"?"text-red-300":"text-amber-300"}>{order.status==="approved"?"Zaakceptowane":order.status==="rejected"?"Odrzucone":"Oczekujące"}</span></article>)}</div>}
+        </section>
+        <footer className="mt-14 border-t border-white/10 pt-7 text-center"><a href="/" className="text-sm text-gray-400 underline">Wróć na stronę główną</a></footer>
       </div>
     </main>
   );
