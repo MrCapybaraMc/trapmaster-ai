@@ -17,6 +17,8 @@ type UserRole = "user" | "admin" | "owner";
 type Language = "pl" | "en";
 type Tab =
   | "forum"
+  | "updates"
+  | "announcements"
   | "trappers"
   | "help"
   | "recruitment"
@@ -35,6 +37,8 @@ type ForumPost = {
   content: string;
   created_at: string;
 };
+
+type SiteAnnouncement = { id: string; title: string; content: string; created_by: string; created_at: string; };
 
 type Trapmaster = {
   display_name: string;
@@ -455,6 +459,12 @@ export default function Home() {
   const [forumLoading, setForumLoading] = useState(false);
   const [forumSending, setForumSending] = useState(false);
   const [forumMessage, setForumMessage] = useState("");
+  const [announcements, setAnnouncements] = useState<SiteAnnouncement[]>([]);
+  const [announcementTitle, setAnnouncementTitle] = useState("");
+  const [announcementContent, setAnnouncementContent] = useState("");
+  const [announcementsLoading, setAnnouncementsLoading] = useState(false);
+  const [announcementSending, setAnnouncementSending] = useState(false);
+  const [announcementMessage, setAnnouncementMessage] = useState("");
 
   const [trappers, setTrappers] = useState<Trapmaster[]>([]);
   const [trappersLoading, setTrappersLoading] = useState(false);
@@ -678,6 +688,16 @@ export default function Home() {
   }, [supabase]);
 
   // Ĺadowanie aktywnych TrapMasterĂłw.
+  const loadAnnouncements = useCallback(async () => {
+    setAnnouncementsLoading(true);
+    const { data, error } = await supabase.from("site_announcements")
+      .select("id,title,content,created_by,created_at")
+      .order("created_at", { ascending: false }).limit(100);
+    if (error) setAnnouncementMessage(error.message);
+    else setAnnouncements((data ?? []) as SiteAnnouncement[]);
+    setAnnouncementsLoading(false);
+  }, [supabase]);
+
   const loadTrappers = useCallback(async () => {
     setTrappersLoading(true);
 
@@ -729,6 +749,7 @@ export default function Home() {
 
   useEffect(() => {
     if (activeTab === "forum") loadForum();
+    if (activeTab === "announcements") loadAnnouncements();
     if (activeTab === "trappers") loadTrappers();
     if (
       (activeTab === "support-admin" || activeTab === "recruitment-admin") &&
@@ -740,6 +761,7 @@ export default function Home() {
     activeTab,
     isAdmin,
     loadForum,
+    loadAnnouncements,
     loadTrappers,
     loadAdminSubmissions,
   ]);
@@ -776,6 +798,33 @@ export default function Home() {
   }
 
   // WysĹ‚anie zgĹ‚oszenia do administracji.
+  async function submitAnnouncement() {
+    if (!isAdmin || !loggedIn) return;
+    if (announcementTitle.trim().length < 3 || announcementContent.trim().length < 5) {
+      setAnnouncementMessage("Tytuł musi mieć min. 3 znaki, a treść min. 5 znaków.");
+      return;
+    }
+    setAnnouncementSending(true);
+    setAnnouncementMessage("");
+    const { error } = await supabase.from("site_announcements").insert({
+      title: announcementTitle.trim(), content: announcementContent.trim(), created_by: userId,
+    });
+    setAnnouncementSending(false);
+    if (error) { setAnnouncementMessage(error.message); return; }
+    setAnnouncementTitle(""); setAnnouncementContent("");
+    setAnnouncementMessage("Ogłoszenie zostało opublikowane.");
+    await loadAnnouncements();
+  }
+
+  async function deleteAnnouncement(id: string) {
+    if (!isAdmin) return;
+    if (!window.confirm("Usunąć to ogłoszenie?")) return;
+    const { error } = await supabase.from("site_announcements").delete().eq("id", id);
+    if (error) { setAnnouncementMessage(error.message); return; }
+    setAnnouncementMessage("Ogłoszenie usunięto.");
+    await loadAnnouncements();
+  }
+
   async function submitTicket() {
     if (!loggedIn) {
       setTicketMessage(t.loginFirst);
@@ -1031,6 +1080,8 @@ export default function Home() {
 
   const tabItems: { id: Tab; label: string }[] = [
     { id: "forum", label: t.forum },
+    { id: "updates", label: "Aktualizacje" },
+    { id: "announcements", label: "Ogłoszenia" },
     { id: "trappers", label: t.trappers },
     { id: "help", label: t.help },
     { id: "recruitment", label: t.recruitment },
@@ -1606,6 +1657,64 @@ export default function Home() {
                       </article>
                     ))
                   )}
+                </div>
+              </div>
+            )}
+
+            {activeTab === "updates" && (
+              <div className="rounded-3xl border border-purple-400/30 bg-black/75 p-6 backdrop-blur-md md:p-10">
+                <p className="text-xs font-black uppercase tracking-[.3em] text-purple-300">DZIENNIK ZMIAN TRAPMASTERS</p>
+                <div className="mt-4 flex flex-wrap items-center justify-between gap-4">
+                  <h3 className="text-3xl font-black">Aktualizacje</h3>
+                  <span className="rounded-full border border-green-400/30 bg-green-500/10 px-4 py-2 text-sm font-black text-green-300">Aktualna wersja: v.beta.09</span>
+                </div>
+                <article className="mt-8 rounded-2xl border border-purple-400/25 bg-[#11111c] p-6">
+                  <h4 className="text-2xl font-black text-purple-200">v.beta.09</h4>
+                  <p className="mt-4 text-sm font-bold uppercase tracking-wider text-white/70">Co się zmieniło?</p>
+                  <ul className="mt-3 list-disc space-y-2 pl-5 leading-7 text-white/80">
+                    <li>Dodano zakładkę „Aktualizacje” z historią wersji i opisem zmian.</li>
+                    <li>Dodano zakładkę „Ogłoszenia” widoczną dla wszystkich odwiedzających.</li>
+                    <li>Administratorzy mogą publikować i usuwać ogłoszenia.</li>
+                    <li>Dodano zabezpieczenia bazy danych, aby zarządzanie ogłoszeniami było dostępne wyłącznie dla administratorów.</li>
+                  </ul>
+                </article>
+              </div>
+            )}
+
+            {activeTab === "announcements" && (
+              <div className="rounded-3xl border border-amber-400/30 bg-black/75 p-6 backdrop-blur-md md:p-10">
+                <p className="text-xs font-black uppercase tracking-[.3em] text-amber-300">TRAPMASTERS • TABLICA INFORMACYJNA</p>
+                <h3 className="mt-3 text-3xl font-black text-amber-100">Ogłoszenia</h3>
+                <p className="mt-2 text-white/65">Najnowsze informacje od administracji TRAPMASTERS.</p>
+                {isAdmin && (
+                  <div className="mt-8 rounded-2xl border border-amber-300/25 bg-[#17130c] p-5">
+                    <h4 className="text-xl font-black text-amber-200">Panel publikowania ogłoszeń</h4>
+                    <label className="mt-5 block text-sm font-bold">Tytuł ogłoszenia
+                      <input value={announcementTitle} onChange={(e) => setAnnouncementTitle(e.target.value)} maxLength={120} placeholder="Wpisz tytuł..." className="mt-2 w-full rounded-xl border border-white/15 bg-black/50 px-4 py-3 outline-none focus:border-amber-300" />
+                    </label>
+                    <label className="mt-4 block text-sm font-bold">Treść ogłoszenia
+                      <textarea value={announcementContent} onChange={(e) => setAnnouncementContent(e.target.value)} maxLength={5000} rows={5} placeholder="Napisz ogłoszenie dla społeczności..." className="mt-2 w-full resize-y rounded-xl border border-white/15 bg-black/50 px-4 py-3 outline-none focus:border-amber-300" />
+                    </label>
+                    <div className="mt-3 flex flex-wrap items-center justify-between gap-3">
+                      <span className="text-xs text-white/45">{announcementContent.length}/5000</span>
+                      <button onClick={submitAnnouncement} disabled={announcementSending} className="rounded-xl bg-amber-500 px-6 py-3 font-black text-black hover:bg-amber-400 disabled:opacity-50">{announcementSending ? "Publikowanie..." : "Opublikuj ogłoszenie"}</button>
+                    </div>
+                    {announcementMessage && <p className="mt-3 text-sm text-amber-200">{announcementMessage}</p>}
+                  </div>
+                )}
+                <div className="mt-8 space-y-4">
+                  {announcementsLoading ? <p className="text-white/60">{t.loading}</p> :
+                   announcements.length === 0 ? <p className="rounded-xl border border-white/10 bg-black/30 p-6 text-center text-white/60">Nie ma jeszcze żadnych ogłoszeń.</p> :
+                   announcements.map((announcement) => (
+                    <article key={announcement.id} className="rounded-2xl border border-amber-300/20 bg-[#11111c] p-5 md:p-6">
+                      <div className="flex flex-wrap items-start justify-between gap-3">
+                        <h4 className="text-xl font-black text-amber-100">{announcement.title}</h4>
+                        <span className="text-xs text-white/45">{formatDate(announcement.created_at, language)}</span>
+                      </div>
+                      <p className="mt-4 whitespace-pre-wrap break-words leading-7 text-white/85">{announcement.content}</p>
+                      {isAdmin && <button onClick={() => deleteAnnouncement(announcement.id)} className="mt-5 rounded-lg border border-red-400/30 px-3 py-2 text-xs font-bold text-red-200 hover:bg-red-500/10">Usuń ogłoszenie</button>}
+                    </article>
+                  ))}
                 </div>
               </div>
             )}
