@@ -1297,6 +1297,12 @@ export default function Home() {
                 >
                   {t.myAccount}
                 </a>
+                <a href="/aktualizacje" className="rounded-xl border border-purple-400/50 bg-purple-950/50 px-8 py-4 font-bold text-purple-200 hover:bg-purple-900/60">
+                  AKTUALIZACJE
+                </a>
+                <a href="/ogloszenia" className="rounded-xl border border-amber-400/50 bg-amber-950/40 px-8 py-4 font-bold text-amber-200 hover:bg-amber-900/50">
+                  OGŁOSZENIA
+                </a>
               </div>
             </section>
 
