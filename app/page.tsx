@@ -1003,32 +1003,12 @@ export default function Home() {
     }, 50);
   }
 
-  async function claimDailyReward() {
-    if (!loggedIn) { setDailyMessage("Zaloguj się, aby odbierać punkty Daily."); return; }
-    setDailyBusy(true); setDailyMessage("");
-    const { data, error } = await supabase.rpc("claim_daily_reward");
-    if (error) setDailyMessage(error.message);
-    else { const result = Array.isArray(data) ? data[0] : data; setDailyMessage(`Odebrano ${result.points_awarded} punktów! Seria: ${result.streak_days} dni.`); await loadProfile(userId); }
-    setDailyBusy(false);
-  }
-
-  async function redeemDailyAccess() {
-    if (!loggedIn) { setDailyMessage("Zaloguj się, aby wymienić punkty."); return; }
-    if (!window.confirm("Wymienić 2150 punktów na 24 godziny dostępu TrapMaster?")) return;
-    setDailyBusy(true); setDailyMessage("");
-    const { data, error } = await supabase.rpc("redeem_daily_access");
-    if (error) setDailyMessage(error.message);
-    else { setDailyMessage(`Wymieniono punkty! Dostęp do ${new Date(data.expires_at).toLocaleString("pl-PL")}.`); await loadProfile(userId); }
-    setDailyBusy(false);
-  }
-
   const tabItems: { id: Tab; label: string }[] = [
     { id: "forum", label: t.forum },
     { id: "trappers", label: t.trappers },
     { id: "help", label: t.help },
     { id: "recruitment", label: t.recruitment },
     { id: "creators", label: t.creators },
-    { id: "daily", label: t.daily },
     { id: "daily", label: t.daily },
   ];
 
