@@ -1077,14 +1077,16 @@ export default function Home() {
   }
 
   function openTab(tab: Tab) {
+    if (tab === "forum") {
+      router.push("/forum");
+      return;
+    }
     if (tab === "updates") {
       router.push("/aktualizacje");
-      setActiveTab(tab);
       return;
     }
     if (tab === "announcements") {
       router.push("/ogloszenia");
-      setActiveTab(tab);
       return;
     }
     if (pathname !== "/") router.push("/");
@@ -1296,6 +1298,9 @@ export default function Home() {
                   className="rounded-xl border border-white/30 bg-black/40 px-8 py-4 font-bold"
                 >
                   {t.myAccount}
+                </a>
+                <a href="/forum" className="rounded-xl border border-purple-400/50 bg-purple-950/50 px-8 py-4 font-bold text-purple-200 hover:bg-purple-900/60">
+                  FORUM
                 </a>
                 <a href="/aktualizacje" className="rounded-xl border border-purple-400/50 bg-purple-950/50 px-8 py-4 font-bold text-purple-200 hover:bg-purple-900/60">
                   AKTUALIZACJE
@@ -1609,7 +1614,7 @@ export default function Home() {
               {tabItems.map((item) => (
                 <button
                   key={item.id}
-                  onClick={() => setActiveTab(item.id)}
+                  onClick={() => openTab(item.id)}
                   className={`rounded-xl border px-5 py-3 text-sm font-bold transition ${
                     activeTab === item.id
                       ? "border-purple-400 bg-purple-600 text-white"
