@@ -36,7 +36,7 @@ export default function AccountPage() {
     const clean = nickname.trim();
     if (clean.length < 1 || clean.length > 32) { setMessage("Nick musi mieć od 1 do 32 znaków."); return; }
     setSaving(true); setMessage("");
-    const { error } = await supabase.from("profiles").upsert({ user_id: user.id, nickname: clean, updated_at: new Date().toISOString() });
+    const { error } = await supabase.from("profiles").update({ nickname: clean, updated_at: new Date().toISOString() }).eq("user_id", user.id);
     if (error) setMessage(error.message);
     else { setMessage("Profil został zapisany."); await refresh(); }
     setSaving(false);
@@ -55,7 +55,7 @@ export default function AccountPage() {
     if (uploadError) { setMessage(uploadError.message); setUploading(false); return; }
     const { data } = supabase.storage.from("avatars").getPublicUrl(path);
     const avatarUrl = data.publicUrl + "?v=" + Date.now();
-    const { error } = await supabase.from("profiles").upsert({ user_id: user.id, nickname: nickname.trim() || profile?.nickname || "Gracz", avatar_url: avatarUrl, updated_at: new Date().toISOString() });
+    const { error } = await supabase.from("profiles").update({ nickname: nickname.trim() || profile?.nickname || "Gracz", avatar_url: avatarUrl, updated_at: new Date().toISOString() }).eq("user_id", user.id);
     setMessage(error ? error.message : "Zdjęcie profilowe zostało zmienione.");
     await refresh(); setUploading(false); e.target.value = "";
   }
