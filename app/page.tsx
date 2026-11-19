@@ -2,6 +2,7 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
+import { usePathname, useRouter } from "next/navigation";
 import { createClient } from "../lib/supabase/client";
 
 type Package = {
@@ -428,6 +429,8 @@ function formatDate(value: string | null, lang: Language) {
 }
 
 export default function Home() {
+  const pathname = usePathname();
+  const router = useRouter();
   const [supabase] = useState(() => createClient());
   const videoRef = useRef<HTMLVideoElement | null>(null);
 
@@ -446,6 +449,11 @@ export default function Home() {
   const [musicEnabled, setMusicEnabled] = useState(false);
   const [language, setLanguage] = useState<Language>("pl");
   const [activeTab, setActiveTab] = useState<Tab>("forum");
+
+  useEffect(() => {
+    if (pathname === "/aktualizacje") setActiveTab("updates");
+    else if (pathname === "/ogloszenia") setActiveTab("announcements");
+  }, [pathname]);
 
   const [minecraftNick, setMinecraftNick] = useState("");
   const [discountCode, setDiscountCode] = useState("");
@@ -1069,6 +1077,17 @@ export default function Home() {
   }
 
   function openTab(tab: Tab) {
+    if (tab === "updates") {
+      router.push("/aktualizacje");
+      setActiveTab(tab);
+      return;
+    }
+    if (tab === "announcements") {
+      router.push("/ogloszenia");
+      setActiveTab(tab);
+      return;
+    }
+    if (pathname !== "/") router.push("/");
     setActiveTab(tab);
 
     setTimeout(() => {
