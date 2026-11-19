@@ -4,7 +4,7 @@
 import { useCallback, useEffect, useState } from "react";
 import { createClient } from "../../lib/supabase/client";
 
-type Tab = "orders" | "support" | "recruitment";
+type Tab = "orders" | "support" | "recruitment" | "stats" | "access";
 
 type Order = {
   order_id: string;
@@ -33,6 +33,10 @@ type Application = {
   minecraft_nick: string;
   experience: string;
   motivation: string;
+  likes_zenciaka?: boolean;
+  applicant_age?: number | null;
+  first_name?: string | null;
+  about?: string | null;
   status: string;
   created_at: string;
 };
@@ -48,6 +52,8 @@ export default function AdminPage() {
   const [loading, setLoading] = useState(true);
   const [busyId, setBusyId] = useState("");
   const [message, setMessage] = useState("");
+  const [stats, setStats] = useState<any>(null);
+  const [accessUsers, setAccessUsers] = useState<any[]>([]);
 
   const loadOrders = useCallback(async () => {
     const { data, error } = await supabase.rpc("get_orders");
@@ -71,6 +77,16 @@ export default function AdminPage() {
     }
   }, [supabase]);
 
+  const loadStats = useCallback(async () => {
+    const { data, error } = await supabase.rpc("get_site_stats");
+    if (error) setMessage(error.message); else setStats(data?.[0] || null);
+  }, [supabase]);
+
+  const loadAccess = useCallback(async () => {
+    const { data, error } = await supabase.rpc("get_access_users");
+    if (error) setMessage(error.message); else setAccessUsers(data || []);
+  }, [supabase]);
+
   const loadApplications = useCallback(async () => {
     const { data, error } = await supabase.rpc(
       "get_recruitment_applications"
@@ -91,9 +107,11 @@ export default function AdminPage() {
     if (tab === "orders") await loadOrders();
     if (tab === "support") await loadTickets();
     if (tab === "recruitment") await loadApplications();
+    if (tab === "stats") await loadStats();
+    if (tab === "access") await loadAccess();
 
     setLoading(false);
-  }, [tab, loadOrders, loadTickets, loadApplications]);
+  }, [tab, loadOrders, loadTickets, loadApplications, loadStats, loadAccess]);
 
   useEffect(() => {
     refresh();
@@ -151,6 +169,15 @@ export default function AdminPage() {
     }
 
     setBusyId("");
+  }
+
+  async function changeAccess(userId: string, action: "revoke" | "restore") {
+    const label = action === "revoke" ? "odebrać" : "przywrócić";
+    if (!window.confirm(`Czy na pewno ${label} dostęp TrapMaster temu użytkownikowi?`)) return;
+    setBusyId(userId);
+    const { error } = await supabase.rpc(action === "revoke" ? "revoke_trapmaster_access" : "restore_trapmaster_access", { p_user_id: userId });
+    setMessage(error ? error.message : action === "revoke" ? "Dostęp został odebrany." : "Dostęp został przywrócony.");
+    await loadAccess(); setBusyId("");
   }
 
   function statusLabel(status: string) {
@@ -235,12 +262,9 @@ export default function AdminPage() {
             Zgłoszenia ({tickets.length})
           </button>
 
-          <button
-            className={buttonClass(tab === "recruitment")}
-            onClick={() => setTab("recruitment")}
-          >
-            Zgłoszenia rekrutacyjne ({applications.length})
-          </button>
+          <button className={buttonClass(tab === "recruitment")} onClick={() => setTab("recruitment")}>Zgłoszenia rekrutacyjne ({applications.length})</button>
+          <button className={buttonClass(tab === "stats")} onClick={() => setTab("stats")}>Statystyki</button>
+          <button className={buttonClass(tab === "access")} onClick={() => setTab("access")}>Dostęp TrapMaster</button>
         </nav>
 
         {message && (
@@ -255,6 +279,30 @@ export default function AdminPage() {
           </div>
         ) : (
           <>
+            {tab === "stats" && (
+              <section className="grid gap-4 sm:grid-cols-3">
+                <Stat title="Wszystkie odwiedziny" value={Number(stats?.total_visits || 0)} />
+                <Stat title="Dzisiaj" value={Number(stats?.today_visits || 0)} />
+                <Stat title="Ostatnie 7 dni" value={Number(stats?.week_visits || 0)} />
+              </section>
+            )}
+
+            {tab === "access" && (
+              <section className="rounded-2xl border border-white/10 bg-black/40 p-5 md:p-7">
+                <h2 className="mb-2 text-2xl font-bold">Zarządzanie dostępem</h2>
+                <p className="mb-6 text-sm text-gray-400">Możesz odebrać lub przywrócić dostęp użytkownikowi. Konta administratorów i właściciela są chronione.</p>
+                <div className="space-y-3">
+                  {accessUsers.map((u) => (
+                    <article key={u.user_id} className="flex flex-wrap items-center justify-between gap-4 rounded-xl border border-white/10 bg-white/5 p-4">
+                      <div><p className="font-bold">{u.display_name}</p><p className="text-xs text-gray-400">{u.email || u.user_id}</p><p className="mt-1 text-xs text-gray-500">{u.access_type} · {u.revoked ? "Dostęp odebrany" : u.expires_at ? new Date(u.expires_at).toLocaleString("pl-PL") : "Bezterminowy"}</p></div>
+                      <button disabled={busyId === u.user_id} onClick={() => changeAccess(u.user_id, u.revoked ? "restore" : "revoke")} className={u.revoked ? "rounded-xl bg-green-600 px-4 py-3 font-bold disabled:opacity-50" : "rounded-xl bg-red-600 px-4 py-3 font-bold disabled:opacity-50"}>{u.revoked ? "Przywróć dostęp" : "Odbierz dostęp"}</button>
+                    </article>
+                  ))}
+                  {accessUsers.length === 0 && <p className="text-gray-400">Brak użytkowników z aktywnym lub odebranym dostępem.</p>}
+                </div>
+              </section>
+            )}
+
             {tab === "orders" && (
               <>
                 <section className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-8">
@@ -419,6 +467,12 @@ export default function AdminPage() {
                           />
                         </div>
 
+                        <div className="mt-5 grid gap-2 text-sm text-gray-300 sm:grid-cols-2">
+                          <p><span className="font-bold text-cyan-300">Imię:</span> {application.first_name || "—"}</p>
+                          <p><span className="font-bold text-cyan-300">Wiek:</span> {application.applicant_age ?? "—"}</p>
+                          <p><span className="font-bold text-cyan-300">Czy lubi zenciaka:</span> {application.likes_zenciaka ? "Tak" : application.likes_zenciaka === false ? "Nie" : "—"}</p>
+                        </div>
+                        {application.about && <div className="mt-5"><p className="mb-1 font-bold text-cyan-300">O sobie</p><p className="whitespace-pre-wrap text-gray-200">{application.about}</p></div>}
                         <div className="mt-5">
                           <p className="text-cyan-300 font-bold mb-1">Doświadczenie</p>
                           <p className="whitespace-pre-wrap text-gray-200">
