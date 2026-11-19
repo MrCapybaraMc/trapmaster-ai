@@ -5,9 +5,9 @@ import { createClient } from "../../lib/supabase/client";
 
 export default function AccountPage() {
   const [supabase] = useState(() => createClient());
-  const [user, setUser] = useState<any>(null);
+  const [user, setUser] = useState(null);
   const [profile, setProfile] = useState<any>(null);
-  const [orders, setOrders] = useState<any[]>([]);
+  const [orders, setOrders] = useState([]);
   const [nickname, setNickname] = useState("");
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -31,7 +31,7 @@ export default function AccountPage() {
 
   useEffect(() => { refresh(); }, [refresh]);
 
-  async function saveProfile(e: any) {
+  async function saveProfile(e) {
     e.preventDefault();
     const clean = nickname.trim();
     if (clean.length < 1 || clean.length > 32) { setMessage("Nick musi mieć od 1 do 32 znaków."); return; }
