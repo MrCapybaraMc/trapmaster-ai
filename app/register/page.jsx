@@ -102,6 +102,10 @@ export default function RegisterPage() {
         </div>
 
         <form onSubmit={handleSubmit} className="mt-6 space-y-4">
+          {mode === "register" && <div>
+            <label className="mb-2 block text-sm text-gray-300">Nickname konta</label>
+            <input type="text" required minLength={3} maxLength={32} value={nickname} onChange={(e) => setNickname(e.target.value)} className="w-full rounded-xl border border-white/10 bg-black/30 p-3 outline-none focus:border-purple-500" placeholder="Twój nickname" />
+          </div>}
           <div>
             <label className="mb-2 block text-sm text-gray-300">E-mail</label>
             <input
@@ -127,6 +131,10 @@ export default function RegisterPage() {
             />
           </div>
 
+          {mode === "register" && <div>
+            <label className="mb-2 block text-sm text-gray-300">Powtórz hasło</label>
+            <input type="password" required minLength={6} value={confirmPassword} onChange={(e) => setConfirmPassword(e.target.value)} className="w-full rounded-xl border border-white/10 bg-black/30 p-3 outline-none focus:border-purple-500" placeholder="Wpisz hasło ponownie" />
+          </div>}
           <button
             type="submit"
             disabled={loading}
