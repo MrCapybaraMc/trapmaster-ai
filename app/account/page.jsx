@@ -6,7 +6,7 @@ import { createClient } from "../../lib/supabase/client";
 export default function AccountPage() {
   const [supabase] = useState(() => createClient());
   const [user, setUser] = useState(null);
-  const [profile, setProfile] = useState<any>(null);
+  const [profile, setProfile] = useState(null);
   const [orders, setOrders] = useState([]);
   const [nickname, setNickname] = useState("");
   const [loading, setLoading] = useState(true);
@@ -42,7 +42,7 @@ export default function AccountPage() {
     setSaving(false);
   }
 
-  async function uploadAvatar(e: any) {
+  async function uploadAvatar(e) {
     const file = e.target.files?.[0];
     if (!file || !user) return;
     if (!["image/png","image/jpeg","image/webp"].includes(file.type) || file.size > 3 * 1024 * 1024) {
