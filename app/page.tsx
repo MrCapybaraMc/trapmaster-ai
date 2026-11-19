@@ -1269,7 +1269,7 @@ export default function Home() {
                     </p>
                     {discount > 0 && (
                       <p className="mt-2 text-sm text-green-300">
-                        {t.discount} {discount}% â€” {t.discountApplied}
+                        {t.discount} {discount}% — {t.discountApplied}
                       </p>
                     )}
                     <p className="mt-2 text-sm text-white/60">{t.serverDollars}</p>
@@ -1838,7 +1838,7 @@ export default function Home() {
             {activeTab === "support-admin" && (
               <div className="rounded-3xl border border-cyan-400/30 bg-black/75 p-6 backdrop-blur-md md:p-10">
                 <h3 className="text-3xl font-black text-cyan-200">
-                  {t.adminPanel} â€” {t.supportAdmin}
+                  {t.adminPanel} — {t.supportAdmin}
                 </h3>
 
                 {adminLoading ? (
@@ -1901,7 +1901,7 @@ export default function Home() {
             {activeTab === "recruitment-admin" && (
               <div className="rounded-3xl border border-yellow-400/30 bg-black/75 p-6 backdrop-blur-md md:p-10">
                 <h3 className="text-3xl font-black text-yellow-200">
-                  {t.adminPanel} â€” {t.recruitmentAdmin}
+                  {t.adminPanel} — {t.recruitmentAdmin}
                 </h3>
 
                 {adminLoading ? (
