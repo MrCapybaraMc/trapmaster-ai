@@ -135,7 +135,7 @@ export default function AdminPage() {
   }, [supabase]);
 
   const loadStaffUsers = useCallback(async () => {
-    if (!supabase || userRole !== "owner") return;
+    if (!supabase || !["owner", "headadmin"].includes(userRole)) return;
     const { data, error } = await supabase.from("admin_users").select("user_id, role").order("created_at", { ascending: true });
     if (error) { setMessage(error.message); return; }
     const ids = (data || []).map((row: any) => row.user_id);
@@ -144,10 +144,10 @@ export default function AdminPage() {
   }, [supabase, userRole]);
 
   async function changeStaffRole(userId: string, role: "admin" | "headadmin") {
-    if (!supabase || userRole !== "owner") return;
+    if (!supabase || (userRole !== "owner" && !(userRole === "headadmin" && role === "admin"))) return;
     if (!window.confirm("Zmienić rolę tego członka administracji na " + (role === "headadmin" ? "HeadAdmin" : "Admin") + "?")) return;
     setBusyId(userId);
-    const { error } = await supabase.from("admin_users").update({ role }).eq("user_id", userId);
+    const { error } = await supabase.rpc("set_staff_role", { p_user_id: userId, p_role: role });
     setMessage(error ? error.message : "Rola została zmieniona.");
     await loadStaffUsers(); setBusyId("");
   }
@@ -441,12 +441,12 @@ export default function AdminPage() {
                   <h4 className="mb-3 mt-6 font-bold">Aktywne kody</h4>
                   <div className="space-y-2">{discountCodes.filter((c) => c.active && (!c.expires_at || new Date(c.expires_at) > new Date())).map((c) => <div key={c.code} className="flex flex-wrap items-center justify-between gap-3 rounded-xl bg-black/30 p-3"><div><p className="font-black">{c.code} · {c.discount_percent}%</p><p className="text-xs text-gray-300">Pakiet: {c.package_type} · {c.expires_at ? "Wygasa: " + new Date(c.expires_at).toLocaleString("pl-PL") : "Bezterminowy"}</p></div><button onClick={() => disableDiscountCode(c.code)} disabled={busyId === c.code} className="rounded-lg bg-red-600 px-4 py-2 font-bold">Wyłącz</button></div>)}</div>
                 </div>}
-                {isOwner && <div className="mb-6 rounded-xl border border-cyan-400/30 bg-cyan-400/10 p-5">
+                {(isOwner || userRole === "headadmin") && <div className="mb-6 rounded-xl border border-cyan-400/30 bg-cyan-400/10 p-5">
                   <h3 className="mb-3 text-lg font-black">Rangi administracji</h3>
-                  <p className="mb-4 text-xs text-gray-300">Tylko Owner może nadawać i odbierać rangę HeadAdmin.</p>
-                  <div className="space-y-2">{staffUsers.filter((staff) => staff.role !== "owner").map((staff) => <div key={staff.user_id} className="flex flex-wrap items-center justify-between gap-3 rounded-xl bg-black/30 p-3">
+                  <p className="mb-4 text-xs text-gray-300">Owner może nadawać HeadAdminów. HeadAdmin może nadawać i odbierać rangę zwykłego Admina.</p>
+                  <div className="space-y-2">{staffUsers.filter((staff) => staff.role !== "owner" && (userRole === "owner" || staff.role === "admin")).map((staff) => <div key={staff.user_id} className="flex flex-wrap items-center justify-between gap-3 rounded-xl bg-black/30 p-3">
                     <div><p className="font-bold">{staff.nickname}</p><p className="text-xs text-gray-400">{staff.user_id}</p><p className="text-xs text-cyan-200">Obecna rola: {staff.role}</p></div>
-                    <button disabled={busyId === staff.user_id} onClick={() => changeStaffRole(staff.user_id, staff.role === "headadmin" ? "admin" : "headadmin")} className="rounded-lg bg-cyan-600 px-4 py-2 font-bold disabled:opacity-50">{staff.role === "headadmin" ? "Zmień na Admin" : "Nadaj HeadAdmin"}</button>
+                    {userRole === "owner" ? <button disabled={busyId === staff.user_id} onClick={() => changeStaffRole(staff.user_id, staff.role === "headadmin" ? "admin" : "headadmin")} className="rounded-lg bg-cyan-600 px-4 py-2 font-bold disabled:opacity-50">{staff.role === "headadmin" ? "Zmień na Admin" : "Nadaj HeadAdmin"}</button> : <button disabled={busyId === staff.user_id} onClick={() => changeStaffRole(staff.user_id, "admin")} className="rounded-lg bg-cyan-600 px-4 py-2 font-bold disabled:opacity-50">Nadaj Admina</button>}
                   </div>)}</div>
                 </div>}
                 <div className="space-y-3">
