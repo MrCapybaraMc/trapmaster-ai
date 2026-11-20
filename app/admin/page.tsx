@@ -46,7 +46,17 @@ type Application = {
 };
 
 export default function AdminPage() {
-  const [supabase] = useState(() => createClient());
+  const [supabase, setSupabase] = useState<ReturnType<typeof createClient> | null>(null);
+
+  useEffect(() => {
+    try {
+      setSupabase(createClient());
+    } catch (error) {
+      console.error("Supabase client initialization failed:", error);
+      setMessage("Brak konfiguracji Supabase. Sprawdź zmienne środowiskowe projektu.");
+      setLoading(false);
+    }
+  }, []);
   const [tab, setTab] = useState<Tab>("orders");
 
   const [orders, setOrders] = useState<Order[]>([]);
@@ -61,6 +71,7 @@ export default function AdminPage() {
   const [accountUsers, setAccountUsers] = useState<any[]>([]);
 
   const loadOrders = useCallback(async () => {
+    if (!supabase) return;
     const { data, error } = await supabase.rpc("get_orders");
 
     if (error) {
@@ -72,6 +83,7 @@ export default function AdminPage() {
   }, [supabase]);
 
   const loadTickets = useCallback(async () => {
+    if (!supabase) return;
     const { data, error } = await supabase.rpc("get_support_tickets");
 
     if (error) {
@@ -83,21 +95,25 @@ export default function AdminPage() {
   }, [supabase]);
 
   const loadStats = useCallback(async () => {
+    if (!supabase) return;
     const { data, error } = await supabase.rpc("get_site_stats");
     if (error) setMessage(error.message); else setStats(data?.[0] || null);
   }, [supabase]);
 
   const loadAccess = useCallback(async () => {
+    if (!supabase) return;
     const { data, error } = await supabase.rpc("get_access_users");
     if (error) setMessage(error.message); else setAccessUsers(data || []);
   }, [supabase]);
 
   const loadAccountUsers = useCallback(async () => {
+    if (!supabase) return;
     const { data, error } = await supabase.rpc("get_account_suspension_users");
     if (error) setMessage(error.message); else setAccountUsers(data || []);
   }, [supabase]);
 
   const loadApplications = useCallback(async () => {
+    if (!supabase) return;
     const { data, error } = await supabase.rpc(
       "get_recruitment_applications"
     );
@@ -125,10 +141,11 @@ export default function AdminPage() {
   }, [tab, loadOrders, loadTickets, loadApplications, loadStats, loadAccess, loadAccountUsers]);
 
   useEffect(() => {
-    refresh();
-  }, [refresh]);
+    if (supabase) void refresh();
+  }, [supabase, refresh]);
 
   async function reviewOrder(orderId: string, decision: string) {
+    if (!supabase) return;
     const question =
       decision === "approved"
         ? "Czy zaakceptować zamówienie?"
@@ -161,6 +178,7 @@ export default function AdminPage() {
     id: string,
     status: string
   ) {
+    if (!supabase) return;
     if (!window.confirm("Czy na pewno zmienić status zgłoszenia?")) return;
 
     setBusyId(id);
@@ -183,6 +201,7 @@ export default function AdminPage() {
   }
 
   async function changeAccess(userId: string, action: "revoke" | "restore") {
+    if (!supabase) return;
     const label = action === "revoke" ? "odebrać" : "przywrócić";
     if (!window.confirm(`Czy na pewno ${label} dostęp TrapMaster temu użytkownikowi?`)) return;
     setBusyId(userId);
@@ -192,6 +211,7 @@ export default function AdminPage() {
   }
 
   async function changeAccountSuspension(userId: string, suspend: boolean) {
+    if (!supabase) return;
     const action = suspend ? "zablokować całe konto" : "przywrócić dostęp do całej strony";
     if (!window.confirm(`Czy na pewno chcesz ${action} temu użytkownikowi?`)) return;
     setBusyId(userId); setMessage("");
@@ -201,6 +221,7 @@ export default function AdminPage() {
   }
 
   async function manageUserAccount(userId: string, action: "delete" | "reset_password") {
+    if (!supabase) return;
     const target = accountUsers.find((user) => user.user_id === userId);
     if (!target) return;
 
