@@ -59,8 +59,22 @@ export default function AdminPage() {
           return;
         }
         const { data: ownerResult, error: ownerError } = await client.rpc("is_owner");
-        setIsOwner(!ownerError && ownerResult === true);
-        if (ownerError) setMessage("Nie udało się potwierdzić uprawnień Ownera: " + ownerError.message);
+        let ownerConfirmed = !ownerError && ownerResult === true;
+
+        // Fallback for sessions where the RPC response is unavailable.
+        if (!ownerConfirmed) {
+          const { data: roleData, error: roleError } = await client
+            .from("admin_users")
+            .select("role")
+            .eq("user_id", userData.user.id)
+            .maybeSingle();
+          ownerConfirmed = !roleError && roleData?.role === "owner";
+        }
+
+        setIsOwner(ownerConfirmed);
+        if (!ownerConfirmed) {
+          setMessage("Nie udało się potwierdzić uprawnień Ownera. Odśwież stronę po ponownym zalogowaniu.");
+        }
       })();
     } catch (error) {
       console.error("Supabase client initialization failed:", error);
@@ -372,16 +386,25 @@ export default function AdminPage() {
                 <h2 className="mb-2 text-2xl font-bold">Zarządzanie kontami użytkowników</h2>
                 <p className="mb-3 text-sm text-gray-400">Możesz blokować konta zwykłych użytkowników, wysłać im bezpieczny link do ustawienia nowego hasła lub trwale usunąć konto. Konta administratorów i właściciela są chronione.</p>
                 {isOwner ? (
-                  <p className="mb-6 rounded-xl border border-cyan-400/30 bg-cyan-400/10 p-3 text-sm text-cyan-100">Uprawnienia Ownera potwierdzone. Przy każdym zwykłym koncie znajdziesz przycisk „Resetuj hasło e-mailem”.</p>
+                  <>
+                    <div className="mb-4 rounded-xl border border-cyan-400/30 bg-cyan-400/10 p-4 text-sm text-cyan-100">
+                      <p className="font-black">UPRAWNIENIA OWNERA POTWIERDZONE</p>
+                      <p className="mt-1">Na liście zwykłych kont dostępny jest przycisk „Wyślij link resetujący hasło”. Link trafia na e-mail użytkownika — hasło nie jest wyświetlane w panelu.</p>
+                    </div>
+                    <div className="mb-6 rounded-xl border border-green-400/30 bg-green-400/10 p-4 text-sm text-green-100">
+                      <p className="font-black">ZNIŻKI OWNERA I ADMINA</p>
+                      <p className="mt-1">Pakiety dzienne, tygodniowe i miesięczne: 30% zniżki. Pakiet dożywotni: 20% zniżki. Obniżona cena jest naliczana również po stronie bazy danych przy składaniu zamówienia.</p>
+                    </div>
+                  </>
                 ) : (
-                  <p className="mb-6 text-sm text-amber-200">Opcja resetowania haseł jest dostępna wyłącznie dla Ownera.</p>
+                  <p className="mb-6 text-sm text-amber-200">Resetowanie haseł jest dostępne wyłącznie dla Ownera. Zaloguj się na konto Ownera i odśwież panel.</p>
                 )}
                 <div className="space-y-3">
                   {accountUsers.map((u) => (
                     <article key={u.user_id} className="flex flex-wrap items-center justify-between gap-4 rounded-xl border border-white/10 bg-white/5 p-4">
                       <div><p className="font-bold">{u.display_name}</p><p className="text-xs text-gray-400">{u.email || u.user_id}</p><p className="mt-1 text-xs text-gray-500">{u.suspended ? `Konto zablokowane · ${u.suspended_at ? new Date(u.suspended_at).toLocaleString("pl-PL") : ""}` : "Konto aktywne"}</p></div>
                       <div className="flex flex-wrap gap-2">
-                        {isOwner && <button disabled={busyId === u.user_id} onClick={() => manageUserAccount(u.user_id, "reset_password")} className="rounded-xl bg-cyan-600 px-4 py-3 font-bold disabled:opacity-50">Resetuj hasło e-mailem</button>}
+                        {isOwner && <button disabled={busyId === u.user_id} onClick={() => manageUserAccount(u.user_id, "reset_password")} className="rounded-xl bg-cyan-600 px-4 py-3 font-bold disabled:opacity-50">Wyślij link resetujący hasło</button>}
                         <button disabled={busyId === u.user_id} onClick={() => manageUserAccount(u.user_id, "delete")} className="rounded-xl bg-red-700 px-4 py-3 font-bold disabled:opacity-50">Usuń konto</button>
                         <button disabled={busyId === u.user_id} onClick={() => changeAccountSuspension(u.user_id, !u.suspended)} className={u.suspended ? "rounded-xl bg-green-600 px-4 py-3 font-bold disabled:opacity-50" : "rounded-xl bg-red-600 px-4 py-3 font-bold disabled:opacity-50"}>{u.suspended ? "Odblokuj konto" : "Zablokuj konto"}</button>
                       </div>
