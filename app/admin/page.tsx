@@ -52,7 +52,20 @@ export default function AdminPage() {
     try {
       const client = createClient();
       setSupabase(client);
-      void client.rpc("is_owner").then(({ data }) => setIsOwner(data === true));
+      void (async () => {
+        const { data: userData, error: userError } = await client.auth.getUser();
+        if (userError || !userData.user) {
+          setIsOwner(false);
+          return;
+        }
+        const { data: roleData, error: roleError } = await client
+          .from("admin_users")
+          .select("role")
+          .eq("user_id", userData.user.id)
+          .maybeSingle();
+        setIsOwner(!roleError && roleData?.role === "owner");
+        if (roleError) setMessage("Nie udało się sprawdzić uprawnień Ownera: " + roleError.message);
+      })();
     } catch (error) {
       console.error("Supabase client initialization failed:", error);
       setMessage("Brak konfiguracji Supabase. Sprawdź zmienne środowiskowe projektu.");
@@ -361,7 +374,12 @@ export default function AdminPage() {
             {tab === "accounts" && (
               <section className="rounded-2xl border border-white/10 bg-black/40 p-5 md:p-7">
                 <h2 className="mb-2 text-2xl font-bold">Zarządzanie kontami użytkowników</h2>
-                <p className="mb-6 text-sm text-gray-400">Możesz blokować konta zwykłych użytkowników, wysłać im bezpieczny link do ustawienia nowego hasła lub trwale usunąć konto. Konta administratorów i właściciela są chronione.</p>
+                <p className="mb-3 text-sm text-gray-400">Możesz blokować konta zwykłych użytkowników, wysłać im bezpieczny link do ustawienia nowego hasła lub trwale usunąć konto. Konta administratorów i właściciela są chronione.</p>
+                {isOwner ? (
+                  <p className="mb-6 rounded-xl border border-cyan-400/30 bg-cyan-400/10 p-3 text-sm text-cyan-100">Uprawnienia Ownera potwierdzone. Przy każdym zwykłym koncie znajdziesz przycisk „Resetuj hasło e-mailem”.</p>
+                ) : (
+                  <p className="mb-6 text-sm text-amber-200">Opcja resetowania haseł jest dostępna wyłącznie dla Ownera.</p>
+                )}
                 <div className="space-y-3">
                   {accountUsers.map((u) => (
                     <article key={u.user_id} className="flex flex-wrap items-center justify-between gap-4 rounded-xl border border-white/10 bg-white/5 p-4">
