@@ -50,7 +50,9 @@ export default function AdminPage() {
 
   useEffect(() => {
     try {
-      setSupabase(createClient());
+      const client = createClient();
+      setSupabase(client);
+      void client.rpc("is_owner").then(({ data }) => setIsOwner(data === true));
     } catch (error) {
       console.error("Supabase client initialization failed:", error);
       setMessage("Brak konfiguracji Supabase. Sprawdź zmienne środowiskowe projektu.");
@@ -64,6 +66,7 @@ export default function AdminPage() {
   const [applications, setApplications] = useState<Application[]>([]);
 
   const [loading, setLoading] = useState(true);
+  const [isOwner, setIsOwner] = useState(false);
   const [busyId, setBusyId] = useState("");
   const [message, setMessage] = useState("");
   const [stats, setStats] = useState<any>(null);
@@ -364,7 +367,7 @@ export default function AdminPage() {
                     <article key={u.user_id} className="flex flex-wrap items-center justify-between gap-4 rounded-xl border border-white/10 bg-white/5 p-4">
                       <div><p className="font-bold">{u.display_name}</p><p className="text-xs text-gray-400">{u.email || u.user_id}</p><p className="mt-1 text-xs text-gray-500">{u.suspended ? `Konto zablokowane · ${u.suspended_at ? new Date(u.suspended_at).toLocaleString("pl-PL") : ""}` : "Konto aktywne"}</p></div>
                       <div className="flex flex-wrap gap-2">
-                        <button disabled={busyId === u.user_id} onClick={() => manageUserAccount(u.user_id, "reset_password")} className="rounded-xl bg-cyan-600 px-4 py-3 font-bold disabled:opacity-50">Resetuj hasło e-mailem</button>
+                        {isOwner && <button disabled={busyId === u.user_id} onClick={() => manageUserAccount(u.user_id, "reset_password")} className="rounded-xl bg-cyan-600 px-4 py-3 font-bold disabled:opacity-50">Resetuj hasło e-mailem</button>}
                         <button disabled={busyId === u.user_id} onClick={() => manageUserAccount(u.user_id, "delete")} className="rounded-xl bg-red-700 px-4 py-3 font-bold disabled:opacity-50">Usuń konto</button>
                         <button disabled={busyId === u.user_id} onClick={() => changeAccountSuspension(u.user_id, !u.suspended)} className={u.suspended ? "rounded-xl bg-green-600 px-4 py-3 font-bold disabled:opacity-50" : "rounded-xl bg-red-600 px-4 py-3 font-bold disabled:opacity-50"}>{u.suspended ? "Odblokuj konto" : "Zablokuj konto"}</button>
                       </div>
