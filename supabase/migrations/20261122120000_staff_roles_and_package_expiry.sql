@@ -115,13 +115,17 @@ as $$
 begin
   if new.status = 'approved'
      and (tg_op = 'INSERT' or old.status is distinct from 'approved') then
-    new.expires_at := case new.package_type
-      when 'day' then now() + interval '1 day'
-      when 'week' then now() + interval '7 days'
-      when 'month' then now() + interval '30 days'
-      when 'forever' then null
-      else raise exception 'Nieprawidłowy typ pakietu.';
-    end;
+    if new.package_type = 'day' then
+      new.expires_at := now() + interval '1 day';
+    elsif new.package_type = 'week' then
+      new.expires_at := now() + interval '7 days';
+    elsif new.package_type = 'month' then
+      new.expires_at := now() + interval '30 days';
+    elsif new.package_type = 'forever' then
+      new.expires_at := null;
+    else
+      raise exception 'Nieprawidłowy typ pakietu.';
+    end if;
   end if;
   return new;
 end;
