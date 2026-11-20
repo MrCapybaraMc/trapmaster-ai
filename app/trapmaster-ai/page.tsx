@@ -174,7 +174,13 @@ function MoneyRain({ burstKey }: { burstKey: number }) {
 
 export default function TrapmasterAIPage() {
   const router = useRouter();
-  const [supabase] = useState(() => createClient());
+  // Avoid creating the browser Supabase client during Next.js server prerendering.
+  const [supabase] = useState<ReturnType<typeof createClient>>(() => {
+    if (typeof window === "undefined") {
+      return null as unknown as ReturnType<typeof createClient>;
+    }
+    return createClient();
+  });
 
   const [checkingAccess, setCheckingAccess] = useState(true);
   const [hasAccess, setHasAccess] = useState(false);
