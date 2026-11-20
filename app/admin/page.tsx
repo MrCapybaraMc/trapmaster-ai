@@ -87,6 +87,7 @@ export default function AdminPage() {
   const [accountUsers, setAccountUsers] = useState<any[]>([]);
   const [discountCodes, setDiscountCodes] = useState<any[]>([]);
   const [staffUsers, setStaffUsers] = useState<any[]>([]);
+  const [adminGrantEmail, setAdminGrantEmail] = useState("");
   const [newCode, setNewCode] = useState("");
   const [newCodePackage, setNewCodePackage] = useState("day");
   const [newCodePercent, setNewCodePercent] = useState("10");
@@ -150,6 +151,19 @@ export default function AdminPage() {
     const { error } = await supabase.rpc("set_staff_role", { p_user_id: userId, p_role: role });
     setMessage(error ? error.message : "Rola została zmieniona.");
     await loadStaffUsers(); setBusyId("");
+  }
+
+  async function grantAdminByEmail() {
+    if (!supabase || !["owner", "headadmin"].includes(userRole)) return;
+    const email = adminGrantEmail.trim();
+    if (!email || !email.includes("@")) { setMessage("Wpisz poprawny adres e-mail."); return; }
+    if (!window.confirm("Nadać temu użytkownikowi rangę Admin?")) return;
+    setBusyId("grant-admin");
+    const { error } = await supabase.rpc("grant_admin_by_email", { p_email: email });
+    setMessage(error ? error.message : "Nadano rangę Admin.");
+    if (!error) setAdminGrantEmail("");
+    await loadStaffUsers();
+    setBusyId("");
   }
 
   const loadDiscountCodes = useCallback(async () => {
@@ -444,7 +458,7 @@ export default function AdminPage() {
                 {(isOwner || userRole === "headadmin") && <div className="mb-6 rounded-xl border border-cyan-400/30 bg-cyan-400/10 p-5">
                   <h3 className="mb-3 text-lg font-black">Rangi administracji</h3>
                   <p className="mb-4 text-xs text-gray-300">Owner może nadawać HeadAdminów. HeadAdmin może nadawać i odbierać rangę zwykłego Admina.</p>
-                  <div className="space-y-2">{staffUsers.filter((staff) => staff.role !== "owner" && (userRole === "owner" || staff.role === "admin")).map((staff) => <div key={staff.user_id} className="flex flex-wrap items-center justify-between gap-3 rounded-xl bg-black/30 p-3">
+                  <div className="mb-4 flex flex-col gap-2 sm:flex-row"><input type="email" value={adminGrantEmail} onChange={(e) => setAdminGrantEmail(e.target.value)} placeholder="E-mail użytkownika" className="min-w-0 flex-1 rounded-lg border border-white/10 bg-black/30 px-3 py-2 text-sm" /><button disabled={busyId === "grant-admin"} onClick={grantAdminByEmail} className="rounded-lg bg-cyan-600 px-4 py-2 font-bold disabled:opacity-50">Nadaj Admina</button></div><div className="space-y-2">{staffUsers.filter((staff) => staff.role !== "owner" && (userRole === "owner" || staff.role === "admin")).map((staff) => <div key={staff.user_id} className="flex flex-wrap items-center justify-between gap-3 rounded-xl bg-black/30 p-3">
                     <div><p className="font-bold">{staff.nickname}</p><p className="text-xs text-gray-400">{staff.user_id}</p><p className="text-xs text-cyan-200">Obecna rola: {staff.role}</p></div>
                     {userRole === "owner" ? <button disabled={busyId === staff.user_id} onClick={() => changeStaffRole(staff.user_id, staff.role === "headadmin" ? "admin" : "headadmin")} className="rounded-lg bg-cyan-600 px-4 py-2 font-bold disabled:opacity-50">{staff.role === "headadmin" ? "Zmień na Admin" : "Nadaj HeadAdmin"}</button> : <button disabled={busyId === staff.user_id} onClick={() => changeStaffRole(staff.user_id, "admin")} className="rounded-lg bg-cyan-600 px-4 py-2 font-bold disabled:opacity-50">Nadaj Admina</button>}
                   </div>)}</div>
