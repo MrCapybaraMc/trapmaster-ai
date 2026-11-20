@@ -11,11 +11,11 @@ export default function AccountBanGuard({ children }: { children: React.ReactNod
     const supabase = createClient();
     let active = true;
 
-    async function withTimeout<T>(promise: Promise<T>, ms = 5000): Promise<T> {
+    async function withTimeout<T>(promise: PromiseLike<T>, ms = 5000): Promise<T> {
       let timeoutId: ReturnType<typeof setTimeout> | undefined;
       try {
         return await Promise.race([
-          promise,
+          Promise.resolve(promise),
           new Promise<T>((_, reject) => {
             timeoutId = setTimeout(() => reject(new Error("Access check timed out")), ms);
           }),
