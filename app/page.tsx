@@ -698,6 +698,17 @@ export default function Home() {
     setForumLoading(false);
   }, [supabase]);
 
+  const deleteForumPost = useCallback(async (postId: string) => {
+    if (!isAdmin || !window.confirm("Czy na pewno usunąć ten post?")) return;
+    const { error } = await supabase.from("forum_posts").delete().eq("id", postId);
+    if (error) {
+      setForumMessage("Nie udało się usunąć posta: " + error.message);
+      return;
+    }
+    setForumPosts((current) => current.filter((post) => post.id !== postId));
+    setForumMessage("Post został usunięty.");
+  }, [isAdmin, supabase]);
+
   // Ĺadowanie aktywnych TrapMasterĂłw.
   const loadAnnouncements = useCallback(async () => {
     setAnnouncementsLoading(true);
