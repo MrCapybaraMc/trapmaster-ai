@@ -4,7 +4,7 @@
 import { useCallback, useEffect, useState } from "react";
 import { createClient } from "../../lib/supabase/client";
 
-type Tab = "orders" | "support" | "recruitment" | "stats" | "access" | "accounts";
+type Tab = "owner" | "orders" | "support" | "recruitment" | "stats" | "access" | "accounts";
 
 type Order = {
   order_id: string;
@@ -82,7 +82,7 @@ export default function AdminPage() {
       setLoading(false);
     }
   }, []);
-  const [tab, setTab] = useState<Tab>("orders");
+  const [tab, setTab] = useState<Tab>("owner");
 
   const [orders, setOrders] = useState<Order[]>([]);
   const [tickets, setTickets] = useState<SupportTicket[]>([]);
@@ -161,7 +161,7 @@ export default function AdminPage() {
     if (tab === "recruitment") await loadApplications();
     if (tab === "stats") await loadStats();
     if (tab === "access") await loadAccess();
-    if (tab === "accounts") await loadAccountUsers();
+    if (tab === "accounts" || tab === "owner") await loadAccountUsers();
 
     setLoading(false);
   }, [tab, loadOrders, loadTickets, loadApplications, loadStats, loadAccess, loadAccountUsers]);
@@ -338,7 +338,7 @@ export default function AdminPage() {
           </button>
         </header>
 
-        <nav className="flex flex-wrap gap-3 mb-7">
+        <nav className="flex flex-wrap gap-3 mb-7">\n          <button className={buttonClass(tab === "owner")} onClick={() => setTab("owner")}>Panel Ownera · hasła i zniżki</button>
           <button
             className={buttonClass(tab === "orders")}
             onClick={() => setTab("orders")}
@@ -381,7 +381,7 @@ export default function AdminPage() {
               </section>
             )}
 
-            {tab === "accounts" && (
+            {(tab === "accounts" || tab === "owner") && (
               <section className="rounded-2xl border border-white/10 bg-black/40 p-5 md:p-7">
                 <h2 className="mb-2 text-2xl font-bold">Zarządzanie kontami użytkowników</h2>
                 <p className="mb-3 text-sm text-gray-400">Możesz blokować konta zwykłych użytkowników, wysłać im bezpieczny link do ustawienia nowego hasła lub trwale usunąć konto. Konta administratorów i właściciela są chronione.</p>
