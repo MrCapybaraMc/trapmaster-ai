@@ -9,7 +9,7 @@ export default function AccountPage() {
   // Avoid creating the browser Supabase client during Next.js server prerendering.
   const [supabase] = useState(() => {
     if (typeof window === "undefined") {
-      return null as unknown as ReturnType<typeof createClient>;
+      return null;
     }
     return createClient();
   });
