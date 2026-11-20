@@ -85,6 +85,11 @@ export default function AdminPage() {
   const [stats, setStats] = useState<any>(null);
   const [accessUsers, setAccessUsers] = useState<any[]>([]);
   const [accountUsers, setAccountUsers] = useState<any[]>([]);
+  const [discountCodes, setDiscountCodes] = useState<any[]>([]);
+  const [newCode, setNewCode] = useState("");
+  const [newCodePackage, setNewCodePackage] = useState("day");
+  const [newCodePercent, setNewCodePercent] = useState("10");
+  const [newCodeHours, setNewCodeHours] = useState("");
 
   const loadOrders = useCallback(async () => {
     if (!supabase) return;
@@ -128,6 +133,33 @@ export default function AdminPage() {
     if (error) setMessage(error.message); else setAccountUsers(data || []);
   }, [supabase]);
 
+  const loadDiscountCodes = useCallback(async () => {
+    if (!supabase || !canManageAccounts) return;
+    const { data, error } = await supabase.from("discount_codes").select("*").order("created_at", { ascending: false });
+    if (error) setMessage(error.message); else setDiscountCodes(data || []);
+  }, [supabase, canManageAccounts]);
+
+  async function createDiscountCode() {
+    if (!supabase || !canManageAccounts) return;
+    const code = newCode.trim().toUpperCase();
+    const percent = Number(newCodePercent);
+    const hours = newCodeHours.trim() === "" ? null : Number(newCodeHours);
+    if (!/^[A-Z0-9_-]{3,40}$/.test(code) || !Number.isInteger(percent) || percent < 1 || percent > 100 || (hours !== null && (!Number.isFinite(hours) || hours <= 0 || hours > 87600))) { setMessage("Sprawdź kod, procent i liczbę godzin."); return; }
+    setBusyId("new-discount");
+    const expiresAt = hours === null ? null : new Date(Date.now() + hours * 3600000).toISOString();
+    const { error } = await supabase.from("discount_codes").insert({ code, package_type: newCodePackage, discount_percent: percent, expires_at: expiresAt, created_by: (await supabase.auth.getUser()).data.user?.id });
+    setMessage(error ? error.message : "Kod rabatowy został utworzony.");
+    if (!error) { setNewCode(""); setNewCodeHours(""); await loadDiscountCodes(); }
+    setBusyId("");
+  }
+
+  async function disableDiscountCode(code: string) {
+    if (!supabase || !canManageAccounts || !window.confirm("Wyłączyć kod " + code + "?")) return;
+    setBusyId(code);
+    const { error } = await supabase.from("discount_codes").update({ active: false, disabled_at: new Date().toISOString(), disabled_by: (await supabase.auth.getUser()).data.user?.id }).eq("code", code);
+    setMessage(error ? error.message : "Kod został wyłączony.");
+    await loadDiscountCodes(); setBusyId("");
+  }
   const loadApplications = useCallback(async () => {
     if (!supabase) return;
     const { data, error } = await supabase.rpc(
@@ -152,9 +184,10 @@ export default function AdminPage() {
     if (tab === "stats") await loadStats();
     if (tab === "access") await loadAccess();
     if (tab === "accounts" || tab === "owner") await loadAccountUsers();
+    if (tab === "owner") await loadDiscountCodes();
 
     setLoading(false);
-  }, [tab, loadOrders, loadTickets, loadApplications, loadStats, loadAccess, loadAccountUsers]);
+  }, [tab, loadOrders, loadTickets, loadApplications, loadStats, loadAccess, loadAccountUsers, loadDiscountCodes]);
 
   useEffect(() => {
     if (supabase) void refresh();
@@ -387,6 +420,18 @@ export default function AdminPage() {
                 ) : (
                   <p className="mb-6 text-sm text-cyan-100">Resetowanie haseł jest wyłączone. Usuwanie kont jest dostępne dla Ownera i HeadAdmina.</p>
                 )}
+                {canManageAccounts && <div className="mb-6 rounded-xl border border-green-400/30 bg-green-400/10 p-5">
+                  <h3 className="mb-4 text-lg font-black">Kody rabatowe</h3>
+                  <div className="grid gap-3 sm:grid-cols-2">
+                    <input value={newCode} onChange={(e) => setNewCode(e.target.value)} placeholder="KOD RABATOWY" className="rounded-xl bg-black/40 p-3 text-white" />
+                    <select value={newCodePackage} onChange={(e) => setNewCodePackage(e.target.value)} className="rounded-xl bg-black/40 p-3 text-white"><option value="day">Dzienny</option><option value="week">Tygodniowy</option><option value="month">Miesięczny</option><option value="forever">Dożywotni</option></select>
+                    <input type="number" min="1" max="100" value={newCodePercent} onChange={(e) => setNewCodePercent(e.target.value)} placeholder="Procent zniżki" className="rounded-xl bg-black/40 p-3 text-white" />
+                    <input type="number" min="1" step="1" value={newCodeHours} onChange={(e) => setNewCodeHours(e.target.value)} placeholder="Ważność w godzinach (puste = zawsze)" className="rounded-xl bg-black/40 p-3 text-white" />
+                  </div>
+                  <button onClick={createDiscountCode} disabled={busyId === "new-discount"} className="mt-3 rounded-xl bg-green-500 px-5 py-3 font-bold text-black disabled:opacity-50">Utwórz kod</button>
+                  <h4 className="mb-3 mt-6 font-bold">Aktywne kody</h4>
+                  <div className="space-y-2">{discountCodes.filter((c) => c.active && (!c.expires_at || new Date(c.expires_at) > new Date())).map((c) => <div key={c.code} className="flex flex-wrap items-center justify-between gap-3 rounded-xl bg-black/30 p-3"><div><p className="font-black">{c.code} · {c.discount_percent}%</p><p className="text-xs text-gray-300">Pakiet: {c.package_type} · {c.expires_at ? "Wygasa: " + new Date(c.expires_at).toLocaleString("pl-PL") : "Bezterminowy"}</p></div><button onClick={() => disableDiscountCode(c.code)} disabled={busyId === c.code} className="rounded-lg bg-red-600 px-4 py-2 font-bold">Wyłącz</button></div>)}</div>
+                </div>}
                 <div className="space-y-3">
                   {accountUsers.map((u) => (
                     <article key={u.user_id} className="flex flex-wrap items-center justify-between gap-4 rounded-xl border border-white/10 bg-white/5 p-4">
