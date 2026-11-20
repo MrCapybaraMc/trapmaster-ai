@@ -200,6 +200,30 @@ export default function AdminPage() {
     await loadAccountUsers(); setBusyId("");
   }
 
+  async function manageUserAccount(userId: string, action: "delete" | "reset_password") {
+    const target = accountUsers.find((user) => user.user_id === userId);
+    if (!target) return;
+
+    const confirmed = action === "delete"
+      ? window.confirm(`Czy na pewno trwale usunąć konto ${target.email || target.display_name}? Tej operacji nie można cofnąć.`)
+      : window.confirm(`Wysłać ${target.email || "użytkownikowi"} wiadomość z linkiem do ustawienia nowego hasła?`);
+    if (!confirmed) return;
+
+    setBusyId(userId);
+    setMessage("");
+    const { data, error } = await supabase.functions.invoke("admin-account-management", {
+      body: { action, user_id: userId },
+    });
+
+    if (error) {
+      setMessage(error.message || "Nie udało się wykonać operacji.");
+    } else {
+      setMessage(data?.message || "Operacja zakończona.");
+      if (action === "delete") await loadAccountUsers();
+    }
+    setBusyId("");
+  }
+
   function statusLabel(status: string) {
     const labels: Record<string, string> = {
       pending: "Oczekujące",
@@ -285,7 +309,7 @@ export default function AdminPage() {
           <button className={buttonClass(tab === "recruitment")} onClick={() => setTab("recruitment")}>Zgłoszenia rekrutacyjne ({applications.length})</button>
           <button className={buttonClass(tab === "stats")} onClick={() => setTab("stats")}>Statystyki</button>
           <button className={buttonClass(tab === "access")} onClick={() => setTab("access")}>Dostęp TrapMaster</button>
-          <button className={buttonClass(tab === "accounts")} onClick={() => setTab("accounts")}>Blokady kont</button>
+          <button className={buttonClass(tab === "accounts")} onClick={() => setTab("accounts")}>Zarządzanie kontami</button>
         </nav>
 
         {message && (
@@ -312,13 +336,17 @@ export default function AdminPage() {
 
             {tab === "accounts" && (
               <section className="rounded-2xl border border-white/10 bg-black/40 p-5 md:p-7">
-                <h2 className="mb-2 text-2xl font-bold">Blokowanie kont na stronie</h2>
-                <p className="mb-6 text-sm text-gray-400">Blokada ukrywa całą zawartość strony po zalogowaniu. Konta administratorów i właściciela nie są dostępne do zablokowania.</p>
+                <h2 className="mb-2 text-2xl font-bold">Zarządzanie kontami użytkowników</h2>
+                <p className="mb-6 text-sm text-gray-400">Możesz blokować konta zwykłych użytkowników, wysłać im bezpieczny link do ustawienia nowego hasła lub trwale usunąć konto. Konta administratorów i właściciela są chronione.</p>
                 <div className="space-y-3">
                   {accountUsers.map((u) => (
                     <article key={u.user_id} className="flex flex-wrap items-center justify-between gap-4 rounded-xl border border-white/10 bg-white/5 p-4">
                       <div><p className="font-bold">{u.display_name}</p><p className="text-xs text-gray-400">{u.email || u.user_id}</p><p className="mt-1 text-xs text-gray-500">{u.suspended ? `Konto zablokowane · ${u.suspended_at ? new Date(u.suspended_at).toLocaleString("pl-PL") : ""}` : "Konto aktywne"}</p></div>
-                      <button disabled={busyId === u.user_id} onClick={() => changeAccountSuspension(u.user_id, !u.suspended)} className={u.suspended ? "rounded-xl bg-green-600 px-4 py-3 font-bold disabled:opacity-50" : "rounded-xl bg-red-600 px-4 py-3 font-bold disabled:opacity-50"}>{u.suspended ? "Odblokuj konto" : "Zablokuj konto"}</button>
+                      <div className="flex flex-wrap gap-2">
+                        <button disabled={busyId === u.user_id} onClick={() => manageUserAccount(u.user_id, "reset_password")} className="rounded-xl bg-cyan-600 px-4 py-3 font-bold disabled:opacity-50">Resetuj hasło e-mailem</button>
+                        <button disabled={busyId === u.user_id} onClick={() => manageUserAccount(u.user_id, "delete")} className="rounded-xl bg-red-700 px-4 py-3 font-bold disabled:opacity-50">Usuń konto</button>
+                        <button disabled={busyId === u.user_id} onClick={() => changeAccountSuspension(u.user_id, !u.suspended)} className={u.suspended ? "rounded-xl bg-green-600 px-4 py-3 font-bold disabled:opacity-50" : "rounded-xl bg-red-600 px-4 py-3 font-bold disabled:opacity-50"}>{u.suspended ? "Odblokuj konto" : "Zablokuj konto"}</button>
+                      </div>
                     </article>
                   ))}
                   {accountUsers.length === 0 && <p className="text-gray-400">Brak kont do wyświetlenia.</p>}
