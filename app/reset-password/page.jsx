@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation";
 import { createClient } from "../../lib/supabase/client";
 
 export default function ResetPasswordPage() {
-  const [supabase] = useState(() => createClient());
+  const [supabase, setSupabase] = useState(null);
   const router = useRouter();
   const [ready, setReady] = useState(false);
   const [password, setPassword] = useState("");
@@ -14,9 +14,21 @@ export default function ResetPasswordPage() {
   const [busy, setBusy] = useState(false);
 
   useEffect(() => {
+    try {
+      setSupabase(createClient());
+    } catch (error) {
+      console.error("Supabase client initialization failed:", error);
+      setMessage("Nie można połączyć z usługą logowania. Spróbuj ponownie później.");
+    }
+  }, []);
+
+  useEffect(() => {
+    if (!supabase) return;
     let active = true;
-    supabase.auth.getSession().then(({ data }) => {
-      if (active && data.session) setReady(true);
+    supabase.auth.getSession().then(({ data, error }) => {
+      if (!active) return;
+      if (error) setMessage("Nie udało się zweryfikować linku resetującego. Poproś o nowy link.");
+      if (data.session) setReady(true);
     });
     const { data: listener } = supabase.auth.onAuthStateChange((event, session) => {
       if (active && (event === "PASSWORD_RECOVERY" || session)) setReady(Boolean(session));
@@ -30,6 +42,10 @@ export default function ResetPasswordPage() {
   async function handleSubmit(event) {
     event.preventDefault();
     setMessage("");
+    if (!supabase) {
+      setMessage("Usługa logowania nie jest jeszcze gotowa. Odśwież stronę.");
+      return;
+    }
     if (password.length < 8) {
       setMessage("Nowe hasło musi mieć co najmniej 8 znaków.");
       return;
