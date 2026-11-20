@@ -587,16 +587,14 @@ export default function Home() {
         return;
       }
 
-      const { data, error } = await supabase
-        .from("admin_users")
-        .select("role")
-        .eq("user_id", id)
-        .maybeSingle();
+      // Use the server-side role helpers so frontend role visibility does not
+      // depend on direct SELECT access to the protected admin_users table.
+      const { data: ownerResult, error: ownerError } = await supabase.rpc("is_owner");
+      const { data: adminResult, error: adminError } = await supabase.rpc("is_admin");
 
       let role: UserRole = "user";
-
-      if (!error && data?.role === "owner") role = "owner";
-      else if (!error && data?.role === "admin") role = "admin";
+      if (!ownerError && ownerResult === true) role = "owner";
+      else if (!adminError && adminResult === true) role = "admin";
 
       setUserRole(role);
 
