@@ -462,7 +462,6 @@ export default function Home() {
   }, [pathname]);
 
   const [minecraftNick, setMinecraftNick] = useState("");
-  const [discountCode, setDiscountCode] = useState("");
   const [copied, setCopied] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [orderMessage, setOrderMessage] = useState("");
@@ -603,15 +602,15 @@ export default function Home() {
 
       setUserRole(role);
 
-      if (role === "owner" || role === "admin") {
+      if (role === "owner") {
         setHasTrapperAccess(true);
         return;
       }
 
+      // Admins manage the website but do not receive TrapMaster access.
       const { data: access, error: accessError } = await supabase.rpc(
         "has_trapmaster_access"
       );
-
       setHasTrapperAccess(!accessError && access === true);
     },
     [supabase]
@@ -968,12 +967,9 @@ export default function Home() {
   }
 
   // Zamówienia.
-  const discount =
-    discountCode.trim().toLowerCase() === "trapstarter"
-      ? selected?.id === "forever"
-        ? 25
-        : 15
-      : 0;
+  const discount = userRole === "admin" || userRole === "owner"
+    ? selected?.id === "forever" ? 20 : 30
+    : 0;
 
   const finalPrice = selected
     ? Number((selected.price * (100 - discount) / 100).toFixed(2))
@@ -986,7 +982,6 @@ export default function Home() {
   function choosePackage(pkg: Package) {
     setSelected(pkg);
     setMinecraftNick("");
-    setDiscountCode("");
     setCopied(false);
     setOrderMessage("");
     setOrderSuccess(false);
@@ -1030,7 +1025,7 @@ export default function Home() {
     const { data, error } = await supabase.rpc("create_order", {
       p_minecraft_nick: minecraftNick.trim(),
       p_package_type: selected.id,
-      p_discount_code: discountCode.trim(),
+      p_discount_code: "",
     });
 
     setSubmitting(false);
@@ -1395,20 +1390,6 @@ export default function Home() {
                     />
                   </div>
 
-                  <div className="mt-5 text-left">
-                    <label className="mb-2 block text-sm text-white/80">
-                      {t.discountCode}
-                    </label>
-                    <input
-                      value={discountCode}
-                      onChange={(e) => {
-                        setDiscountCode(e.target.value);
-                        setCopied(false);
-                      }}
-                      placeholder="trapstarter"
-                      className="w-full rounded-xl border border-white/20 bg-black/50 px-4 py-4 text-white outline-none focus:border-purple-400"
-                    />
-                  </div>
 
                   <div className="mt-8 rounded-xl border border-white/15 bg-black/40 p-5">
                     <p className="text-white/70">{t.priceToPay}</p>
@@ -1417,7 +1398,7 @@ export default function Home() {
                     </p>
                     {discount > 0 && (
                       <p className="mt-2 text-sm text-green-300">
-                        {t.discount} {discount}% — {t.discountApplied}
+                        {language === "pl" ? `Zniżka dla ${userRole === "owner" ? "Ownera" : "administratora"}: ${discount}%` : `${userRole === "owner" ? "Owner" : "Administrator"} discount: ${discount}%`}
                       </p>
                     )}
                     <p className="mt-2 text-sm text-white/60">{t.serverDollars}</p>
@@ -1692,6 +1673,11 @@ export default function Home() {
                         <p className="mt-4 whitespace-pre-wrap break-words leading-7 text-white/85">
                           {post.content}
                         </p>
+                        {isAdmin && (
+                          <button onClick={() => deleteForumPost(post.id)} className="mt-4 rounded-lg border border-red-400/30 px-3 py-2 text-xs font-bold text-red-200 hover:bg-red-500/10">
+                            Usuń post
+                          </button>
+                        )}
                       </article>
                     ))
                   )}
