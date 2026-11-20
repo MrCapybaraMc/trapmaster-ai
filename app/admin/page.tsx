@@ -58,23 +58,11 @@ export default function AdminPage() {
           setIsOwner(false);
           return;
         }
-        const { data: ownerResult, error: ownerError } = await client.rpc("is_owner");
-        let ownerConfirmed = !ownerError && ownerResult === true;
-
-        // Fallback for sessions where the RPC response is unavailable.
-        if (!ownerConfirmed) {
-          const { data: roleData, error: roleError } = await client
-            .from("admin_users")
-            .select("role")
-            .eq("user_id", userData.user.id)
-            .maybeSingle();
-          ownerConfirmed = !roleError && roleData?.role === "owner";
-        }
-
-        setIsOwner(ownerConfirmed);
-        if (!ownerConfirmed) {
-          setMessage("Nie udało się potwierdzić uprawnień Ownera. Odśwież stronę po ponownym zalogowaniu.");
-        }
+        const { data: roleData, error: roleError } = await client.from("admin_users").select("role").eq("user_id", userData.user.id).maybeSingle();
+        const role = !roleError ? roleData?.role || "" : "";
+        setUserRole(role);
+        setIsOwner(role === "owner");
+        if (!["admin", "headadmin", "owner"].includes(role)) setMessage("Brak uprawnień do panelu administracyjnego.");
       })();
     } catch (error) {
       console.error("Supabase client initialization failed:", error);
@@ -90,6 +78,8 @@ export default function AdminPage() {
 
   const [loading, setLoading] = useState(true);
   const [isOwner, setIsOwner] = useState(false);
+  const [userRole, setUserRole] = useState("");
+  const canManageAccounts = userRole === "owner" || userRole === "headadmin";
   const [busyId, setBusyId] = useState("");
   const [message, setMessage] = useState("");
   const [stats, setStats] = useState<any>(null);
@@ -246,27 +236,25 @@ export default function AdminPage() {
     await loadAccountUsers(); setBusyId("");
   }
 
-  async function manageUserAccount(userId: string, action: "delete" | "reset_password") {
+  async function manageUserAccount(userId: string) {
     if (!supabase) return;
     const target = accountUsers.find((user) => user.user_id === userId);
     if (!target) return;
 
-    const confirmed = action === "delete"
-      ? window.confirm(`Czy na pewno trwale usunąć konto ${target.email || target.display_name}? Tej operacji nie można cofnąć.`)
-      : window.confirm(`Wysłać ${target.email || "użytkownikowi"} wiadomość z linkiem do ustawienia nowego hasła?`);
+    const confirmed = window.confirm("Czy na pewno trwale usunąć konto " + (target.email || target.display_name) + "? Tej operacji nie można cofnąć.");
     if (!confirmed) return;
 
     setBusyId(userId);
     setMessage("");
     const { data, error } = await supabase.functions.invoke("admin-account-management", {
-      body: { action, user_id: userId },
+      body: { action: "delete", user_id: userId },
     });
 
     if (error) {
       setMessage(error.message || "Nie udało się wykonać operacji.");
     } else {
       setMessage(data?.message || "Operacja zakończona.");
-      if (action === "delete") await loadAccountUsers();
+      await loadAccountUsers();
     }
     setBusyId("");
   }
@@ -338,7 +326,7 @@ export default function AdminPage() {
           </button>
         </header>
 
-        <nav className="flex flex-wrap gap-3 mb-7">\n          <button className={buttonClass(tab === "owner")} onClick={() => setTab("owner")}>Panel Ownera · hasła i zniżki</button>
+        <nav className="flex flex-wrap gap-3 mb-7">\n          <button className={buttonClass(tab === "owner")} onClick={() => setTab("owner")}>Owner / HeadAdmin · kody i konta</button>
           <button
             className={buttonClass(tab === "orders")}
             onClick={() => setTab("orders")}
@@ -397,15 +385,15 @@ export default function AdminPage() {
                     </div>
                   </>
                 ) : (
-                  <p className="mb-6 text-sm text-cyan-100">Resetowanie haseł jest dostępne wyłącznie dla Ownera. Zaloguj się na konto Ownera i odśwież panel.</p>
+                  <p className="mb-6 text-sm text-cyan-100">Resetowanie haseł jest wyłączone. Usuwanie kont jest dostępne dla Ownera i HeadAdmina.</p>
                 )}
                 <div className="space-y-3">
                   {accountUsers.map((u) => (
                     <article key={u.user_id} className="flex flex-wrap items-center justify-between gap-4 rounded-xl border border-white/10 bg-white/5 p-4">
                       <div><p className="font-bold">{u.display_name}</p><p className="text-xs text-gray-400">{u.email || u.user_id}</p><p className="mt-1 text-xs text-gray-500">{u.suspended ? `Konto zablokowane · ${u.suspended_at ? new Date(u.suspended_at).toLocaleString("pl-PL") : ""}` : "Konto aktywne"}</p></div>
                       <div className="flex flex-wrap gap-2">
-                        {isOwner && <button disabled={busyId === u.user_id} onClick={() => manageUserAccount(u.user_id, "reset_password")} className="rounded-xl bg-cyan-600 px-4 py-3 font-bold disabled:opacity-50">Wyślij link resetujący hasło</button>}
-                        <button disabled={busyId === u.user_id} onClick={() => manageUserAccount(u.user_id, "delete")} className="rounded-xl bg-red-700 px-4 py-3 font-bold disabled:opacity-50">Usuń konto</button>
+                        
+                        {canManageAccounts && <button disabled={busyId === u.user_id} onClick={() => manageUserAccount(u.user_id)} className="rounded-xl bg-red-700 px-4 py-3 font-bold disabled:opacity-50">Usuń konto</button>}
                         <button disabled={busyId === u.user_id} onClick={() => changeAccountSuspension(u.user_id, !u.suspended)} className={u.suspended ? "rounded-xl bg-green-600 px-4 py-3 font-bold disabled:opacity-50" : "rounded-xl bg-red-600 px-4 py-3 font-bold disabled:opacity-50"}>{u.suspended ? "Odblokuj konto" : "Zablokuj konto"}</button>
                       </div>
                     </article>
