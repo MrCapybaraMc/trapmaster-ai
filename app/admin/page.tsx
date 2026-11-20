@@ -95,6 +95,7 @@ export default function AdminPage() {
   const [stats, setStats] = useState<any>(null);
   const [accessUsers, setAccessUsers] = useState<any[]>([]);
   const [accountUsers, setAccountUsers] = useState<any[]>([]);
+  const [generatedPasswords, setGeneratedPasswords] = useState<Record<string, string>>({});
 
   const loadOrders = useCallback(async () => {
     if (!supabase) return;
@@ -253,7 +254,7 @@ export default function AdminPage() {
 
     const confirmed = action === "delete"
       ? window.confirm(`Czy na pewno trwale usunąć konto ${target.email || target.display_name}? Tej operacji nie można cofnąć.`)
-      : window.confirm(`Wysłać ${target.email || "użytkownikowi"} wiadomość z linkiem do ustawienia nowego hasła?`);
+      : window.confirm(`Wygenerować nowe, losowe hasło numeryczne dla ${target.email || target.display_name}? Poprzednie hasło przestanie działać. Skopiuj nowe hasło i przekaż je użytkownikowi w tickecie.`);
     if (!confirmed) return;
 
     setBusyId(userId);
@@ -265,7 +266,12 @@ export default function AdminPage() {
     if (error) {
       setMessage(error.message || "Nie udało się wykonać operacji.");
     } else {
-      setMessage(data?.message || "Operacja zakończona.");
+      if (action === "reset_password" && typeof data?.temporary_password === "string") {
+        setGeneratedPasswords((current) => ({ ...current, [userId]: data.temporary_password }));
+        setMessage("Wygenerowano nowe hasło. Przekaż je użytkownikowi w odpowiedzi na ticket.");
+      } else {
+        setMessage(data?.message || "Operacja zakończona.");
+      }
       if (action === "delete") await loadAccountUsers();
     }
     setBusyId("");
@@ -384,12 +390,12 @@ export default function AdminPage() {
             {(tab === "accounts" || tab === "owner") && (
               <section className="rounded-2xl border border-white/10 bg-black/40 p-5 md:p-7">
                 <h2 className="mb-2 text-2xl font-bold">Zarządzanie kontami użytkowników</h2>
-                <p className="mb-3 text-sm text-gray-400">Możesz blokować konta zwykłych użytkowników, wysłać im bezpieczny link do ustawienia nowego hasła lub trwale usunąć konto. Konta administratorów i właściciela są chronione.</p>
+                <p className="mb-3 text-sm text-gray-400">Administracja może wygenerować użytkownikowi nowe hasło numeryczne i przekazać je w tickecie, blokować konto lub je usunąć. Konta administratorów i właściciela są chronione.</p>
                 {isOwner ? (
                   <>
                     <div className="mb-4 rounded-xl border border-cyan-400/30 bg-cyan-400/10 p-4 text-sm text-cyan-100">
                       <p className="font-black">UPRAWNIENIA OWNERA POTWIERDZONE</p>
-                      <p className="mt-1">Na liście zwykłych kont dostępny jest przycisk „Wyślij link resetujący hasło”. Link trafia na e-mail użytkownika — hasło nie jest wyświetlane w panelu.</p>
+                      <p className="mt-1">Administrator może wygenerować nowe hasło numeryczne i przekazać je użytkownikowi w odpowiedzi na ticket. Operacja natychmiast unieważnia poprzednie hasło.</p>
                     </div>
                     <div className="mb-6 rounded-xl border border-green-400/30 bg-green-400/10 p-4 text-sm text-green-100">
                       <p className="font-black">ZNIŻKI OWNERA I ADMINA</p>
@@ -397,14 +403,15 @@ export default function AdminPage() {
                     </div>
                   </>
                 ) : (
-                  <p className="mb-6 text-sm text-amber-200">Resetowanie haseł jest dostępne wyłącznie dla Ownera. Zaloguj się na konto Ownera i odśwież panel.</p>
+                  <p className="mb-6 text-sm text-cyan-100">Przy każdym zwykłym koncie możesz wygenerować nowe hasło numeryczne i przekazać je użytkownikowi w tickecie.</p>
                 )}
                 <div className="space-y-3">
                   {accountUsers.map((u) => (
                     <article key={u.user_id} className="flex flex-wrap items-center justify-between gap-4 rounded-xl border border-white/10 bg-white/5 p-4">
                       <div><p className="font-bold">{u.display_name}</p><p className="text-xs text-gray-400">{u.email || u.user_id}</p><p className="mt-1 text-xs text-gray-500">{u.suspended ? `Konto zablokowane · ${u.suspended_at ? new Date(u.suspended_at).toLocaleString("pl-PL") : ""}` : "Konto aktywne"}</p></div>
                       <div className="flex flex-wrap gap-2">
-                        {isOwner && <button disabled={busyId === u.user_id} onClick={() => manageUserAccount(u.user_id, "reset_password")} className="rounded-xl bg-cyan-600 px-4 py-3 font-bold disabled:opacity-50">Wyślij link resetujący hasło</button>}
+                        <button disabled={busyId === u.user_id} onClick={() => manageUserAccount(u.user_id, "reset_password")} className="rounded-xl bg-cyan-600 px-4 py-3 font-bold disabled:opacity-50">{busyId === u.user_id ? "Generowanie..." : "Zresetuj hasło"}</button>
+                        {generatedPasswords[u.user_id] && <div className="w-full rounded-xl border border-amber-300/30 bg-amber-300/10 p-3"><p className="text-xs font-bold text-amber-200">NOWE HASŁO — przekaż użytkownikowi w tickecie</p><p className="mt-1 select-all font-mono text-xl font-black tracking-widest">{generatedPasswords[u.user_id]}</p><button onClick={() => void navigator.clipboard.writeText(generatedPasswords[u.user_id])} className="mt-2 rounded-lg bg-white/10 px-3 py-2 text-sm font-bold">Kopiuj hasło</button></div>}
                         <button disabled={busyId === u.user_id} onClick={() => manageUserAccount(u.user_id, "delete")} className="rounded-xl bg-red-700 px-4 py-3 font-bold disabled:opacity-50">Usuń konto</button>
                         <button disabled={busyId === u.user_id} onClick={() => changeAccountSuspension(u.user_id, !u.suspended)} className={u.suspended ? "rounded-xl bg-green-600 px-4 py-3 font-bold disabled:opacity-50" : "rounded-xl bg-red-600 px-4 py-3 font-bold disabled:opacity-50"}>{u.suspended ? "Odblokuj konto" : "Zablokuj konto"}</button>
                       </div>
