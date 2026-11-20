@@ -1,4 +1,7 @@
 -- HeadAdmin, single-reviewer recruitment approval, and package-specific discount codes.
+-- Percent-based coupons can produce any decimal price, so replace the legacy fixed-price whitelist.
+alter table public.orders drop constraint if exists orders_price_m_check;
+alter table public.orders add constraint orders_price_m_check check (price_m >= 0 and price_m <= 28);
 alter table public.admin_users drop constraint if exists admin_users_role_check;
 alter table public.admin_users add constraint admin_users_role_check
   check (role in ('admin','headadmin','owner'));
