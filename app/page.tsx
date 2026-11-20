@@ -431,7 +431,13 @@ function formatDate(value: string | null, lang: Language) {
 export default function Home() {
   const pathname = usePathname();
   const router = useRouter();
-  const [supabase] = useState(() => createClient());
+  // Avoid creating the browser Supabase client during Next.js server prerendering.
+  const [supabase] = useState<ReturnType<typeof createClient>>(() => {
+    if (typeof window === "undefined") {
+      return null as unknown as ReturnType<typeof createClient>;
+    }
+    return createClient();
+  });
   const videoRef = useRef<HTMLVideoElement | null>(null);
 
   const [selected, setSelected] = useState<Package | null>(null);
