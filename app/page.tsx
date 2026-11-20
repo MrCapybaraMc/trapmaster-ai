@@ -1349,10 +1349,15 @@ export default function Home() {
                     <p className="mt-3 text-sm text-white/75">{packageTranslations[language][pkg.id].description}</p>
 
                     <div className="my-8">
-                      {(userRole === "admin" || userRole === "owner") ? (
+                      {userRole === "owner" ? (
+                        <div className="rounded-2xl border border-amber-300/40 bg-amber-300/10 p-4">
+                          <p className="text-lg font-black text-amber-200">DARMOWY DOSTĘP OWNERA</p>
+                          <p className="mt-1 text-sm text-amber-100/80">Pełny TrapMaster bez opłat i bez zamawiania pakietu.</p>
+                        </div>
+                      ) : userRole === "admin" ? (
                         <>
                           <p className="mb-2 inline-flex rounded-full border border-green-400/40 bg-green-400/10 px-3 py-1 text-xs font-black text-green-200">
-                            ZNIŻKA {pkg.id === "forever" ? "20%" : "30%"} DLA {userRole === "owner" ? "OWNERA" : "ADMINA"}
+                            ZNIŻKA {pkg.id === "forever" ? "20%" : "30%"} DLA ADMINA
                           </p>
                           <div className="flex flex-wrap items-baseline gap-3">
                             <span className="text-5xl font-black text-purple-300">
@@ -1368,17 +1373,26 @@ export default function Home() {
                           {formatPrice(pkg.price)}
                         </span>
                       )}
-                      <p className="mt-2 text-sm text-white/70">{t.serverDollars}</p>
+                      {userRole !== "owner" && <p className="mt-2 text-sm text-white/70">{t.serverDollars}</p>}
                     </div>
 
                     <p className="mb-8 text-sm text-white/85">{packageTranslations[language][pkg.id].duration}</p>
 
-                    <button
-                      onClick={() => choosePackage(pkg)}
-                      className="mt-auto w-full rounded-xl bg-purple-600 py-4 font-bold hover:bg-purple-500"
-                    >
-                      {t.choose}
-                    </button>
+                    {userRole === "owner" ? (
+                      <a
+                        href="/trapmaster"
+                        className="mt-auto block w-full rounded-xl bg-amber-400 py-4 text-center font-black text-black hover:bg-amber-300"
+                      >
+                        OTWÓRZ TRAPMASTER
+                      </a>
+                    ) : (
+                      <button
+                        onClick={() => choosePackage(pkg)}
+                        className="mt-auto w-full rounded-xl bg-purple-600 py-4 font-bold hover:bg-purple-500"
+                      >
+                        {t.choose}
+                      </button>
+                    )}
                   </div>
                 ))}
               </div>
