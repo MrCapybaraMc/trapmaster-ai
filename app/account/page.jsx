@@ -6,7 +6,13 @@ import { useCallback, useEffect, useState } from "react";
 import { createClient } from "../../lib/supabase/client";
 
 export default function AccountPage() {
-  const [supabase] = useState(() => createClient());
+  // Avoid creating the browser Supabase client during Next.js server prerendering.
+  const [supabase] = useState(() => {
+    if (typeof window === "undefined") {
+      return null as unknown as ReturnType<typeof createClient>;
+    }
+    return createClient();
+  });
   const [user, setUser] = useState(null);
   const [profile, setProfile] = useState(null);
   const [orders, setOrders] = useState([]);
