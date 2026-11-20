@@ -12,6 +12,7 @@ export default function ForumPage() {
   const [loading, setLoading] = useState(true);
   const [sending, setSending] = useState(false);
   const [loggedIn, setLoggedIn] = useState(false);
+  const [isAdmin, setIsAdmin] = useState(false);
   const [message, setMessage] = useState("");
 
   const loadPosts = useCallback(async () => {
@@ -28,11 +29,22 @@ export default function ForumPage() {
       const supabase = createClient();
       const { data } = await supabase.auth.getSession();
       if (mounted) setLoggedIn(!!data.session?.user);
+      const { data: adminData } = await supabase.rpc("is_admin");
+      if (mounted) setIsAdmin(adminData === true);
       await loadPosts();
     }
     void init();
     return () => { mounted = false; };
   }, [loadPosts]);
+
+  async function deletePost(id: string) {
+    if (!isAdmin || !window.confirm("Czy na pewno usunąć ten post?")) return;
+    const supabase = createClient();
+    const { error } = await supabase.from("forum_posts").delete().eq("id", id);
+    if (error) { setMessage(error.message); return; }
+    setMessage("Post został usunięty.");
+    await loadPosts();
+  }
 
   async function submitPost() {
     if (!loggedIn) { setMessage("Zaloguj się, aby dodać wpis."); return; }
@@ -67,7 +79,7 @@ export default function ForumPage() {
         </section>
         <section className="mt-8">
           <div className="mb-5 flex items-center justify-between gap-3"><h2 className="text-2xl font-black">Najnowsze posty</h2><button onClick={() => { setLoading(true); void loadPosts(); }} className="rounded-lg border border-white/15 px-4 py-2 text-sm hover:bg-white/10">Odśwież</button></div>
-          {loading ? <p className="text-white/60">Ładowanie postów...</p> : posts.length === 0 ? <p className="rounded-2xl border border-white/10 bg-black/30 p-8 text-center text-white/60">Nie ma jeszcze żadnych postów. Napisz pierwszy!</p> : <div className="space-y-4">{posts.map((post) => <article key={post.id} className="rounded-2xl border border-purple-400/20 bg-[#11111c] p-5"><div className="flex flex-wrap items-center justify-between gap-3"><div className="flex min-w-0 items-center gap-3">{post.author_avatar_url ? <img src={post.author_avatar_url} alt="" className="h-10 w-10 rounded-full border border-purple-300/30 object-cover" /> : <div className="grid h-10 w-10 place-items-center rounded-full bg-purple-900">👤</div>}<span className="truncate font-bold text-purple-200">{post.author_name}</span></div><time className="text-xs text-white/45">{new Date(post.created_at).toLocaleString("pl-PL")}</time></div><p className="mt-4 whitespace-pre-wrap break-words leading-7 text-white/85">{post.content}</p></article>)}</div>}
+          {loading ? <p className="text-white/60">Ładowanie postów...</p> : posts.length === 0 ? <p className="rounded-2xl border border-white/10 bg-black/30 p-8 text-center text-white/60">Nie ma jeszcze żadnych postów. Napisz pierwszy!</p> : <div className="space-y-4">{posts.map((post) => <article key={post.id} className="rounded-2xl border border-purple-400/20 bg-[#11111c] p-5"><div className="flex flex-wrap items-center justify-between gap-3"><div className="flex min-w-0 items-center gap-3">{post.author_avatar_url ? <img src={post.author_avatar_url} alt="" className="h-10 w-10 rounded-full border border-purple-300/30 object-cover" /> : <div className="grid h-10 w-10 place-items-center rounded-full bg-purple-900">👤</div>}<span className="truncate font-bold text-purple-200">{post.author_name}</span></div><time className="text-xs text-white/45">{new Date(post.created_at).toLocaleString("pl-PL")}</time></div><p className="mt-4 whitespace-pre-wrap break-words leading-7 text-white/85">{post.content}</p>{isAdmin && <button onClick={() => deletePost(post.id)} className="mt-4 rounded-lg border border-red-400/30 px-3 py-2 text-xs font-bold text-red-200 hover:bg-red-500/10">Usuń post</button>}</article>)}</div>}
         </section>
       </div>
     </main>
