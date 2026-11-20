@@ -61,6 +61,21 @@ $$;
 revoke all on function public.review_admin_application(uuid,text) from public;
 grant execute on function public.review_admin_application(uuid,text) to authenticated;
 
+create or replace function public.get_discount_code_discount(p_code text, p_package_type text)
+returns integer language plpgsql stable security definer set search_path = ''
+as $
+declare v_discount integer;
+begin
+  if auth.uid() is null then raise exception 'Musisz się zalogować.'; end if;
+  select discount_percent into v_discount from public.discount_codes
+    where code = upper(trim(coalesce(p_code,''))) and active = true
+      and package_type = p_package_type and (expires_at is null or expires_at > now());
+  return coalesce(v_discount, 0);
+end;
+$;
+revoke all on function public.get_discount_code_discount(text,text) from public;
+grant execute on function public.get_discount_code_discount(text,text) to authenticated;
+
 create or replace function public.create_order(p_minecraft_nick text,p_package_type text,p_discount_code text default '')
 returns jsonb language plpgsql security definer set search_path = ''
 as $$
