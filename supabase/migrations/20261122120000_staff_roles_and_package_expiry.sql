@@ -154,7 +154,7 @@ begin
   from public.admin_users
   where user_id = auth.uid();
 
-  if auth.uid() is null or v_actor_role not in ('owner', 'headadmin') then
+  if auth.uid() is null or coalesce(v_actor_role, '') not in ('owner', 'headadmin') then
     raise exception 'Tylko Owner lub HeadAdmin może nadawać rangę Admin.';
   end if;
 
