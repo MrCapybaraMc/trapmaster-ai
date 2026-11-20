@@ -2,7 +2,7 @@ name: Build check
 
 on:
   push:
-    branches: [beta-08-implementation]
+    branches: [beta-08-implementation, beta.09]
   pull_request:
     branches: [main]
     types: [opened, synchronize, reopened, ready_for_review]
