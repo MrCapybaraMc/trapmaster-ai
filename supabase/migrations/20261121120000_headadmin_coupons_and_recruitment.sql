@@ -25,8 +25,16 @@ create table if not exists public.discount_codes (
 );
 alter table public.discount_codes enable row level security;
 drop policy if exists "Admins manage discount codes" on public.discount_codes;
-create policy "Admins manage discount codes" on public.discount_codes
-  for all to authenticated using (public.is_admin()) with check (public.is_admin());
+create policy "HeadAdmins and Owner manage discount codes" on public.discount_codes
+  for all to authenticated
+  using (exists (select 1 from public.admin_users a where a.user_id = auth.uid() and a.role in ('headadmin','owner')))
+  with check (exists (select 1 from public.admin_users a where a.user_id = auth.uid() and a.role in ('headadmin','owner')));
+
+drop policy if exists "Admins can update applications" on public.recruitment_applications;
+create policy "HeadAdmins and Owner can update applications" on public.recruitment_applications
+  for update to authenticated
+  using (exists (select 1 from public.admin_users a where a.user_id = auth.uid() and a.role in ('headadmin','owner')))
+  with check (exists (select 1 from public.admin_users a where a.user_id = auth.uid() and a.role in ('headadmin','owner')));
 
 create or replace function public.review_admin_application(p_application_id uuid, p_decision text)
 returns jsonb language plpgsql security definer set search_path = ''
