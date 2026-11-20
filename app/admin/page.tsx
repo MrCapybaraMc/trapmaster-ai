@@ -58,13 +58,9 @@ export default function AdminPage() {
           setIsOwner(false);
           return;
         }
-        const { data: roleData, error: roleError } = await client
-          .from("admin_users")
-          .select("role")
-          .eq("user_id", userData.user.id)
-          .maybeSingle();
-        setIsOwner(!roleError && roleData?.role === "owner");
-        if (roleError) setMessage("Nie udało się sprawdzić uprawnień Ownera: " + roleError.message);
+        const { data: ownerResult, error: ownerError } = await client.rpc("is_owner");
+        setIsOwner(!ownerError && ownerResult === true);
+        if (ownerError) setMessage("Nie udało się potwierdzić uprawnień Ownera: " + ownerError.message);
       })();
     } catch (error) {
       console.error("Supabase client initialization failed:", error);
