@@ -1351,9 +1351,25 @@ export default function Home() {
                     <p className="mt-3 text-sm text-white/75">{packageTranslations[language][pkg.id].description}</p>
 
                     <div className="my-8">
-                      <span className="text-5xl font-black text-purple-300">
-                        {formatPrice(pkg.price)}
-                      </span>
+                      {(userRole === "admin" || userRole === "owner") ? (
+                        <>
+                          <p className="mb-2 inline-flex rounded-full border border-green-400/40 bg-green-400/10 px-3 py-1 text-xs font-black text-green-200">
+                            ZNIŻKA {pkg.id === "forever" ? "20%" : "30%"} DLA {userRole === "owner" ? "OWNERA" : "ADMINA"}
+                          </p>
+                          <div className="flex flex-wrap items-baseline gap-3">
+                            <span className="text-5xl font-black text-purple-300">
+                              {formatPrice(pkg.price * (pkg.id === "forever" ? 0.8 : 0.7))}
+                            </span>
+                            <span className="text-lg text-white/45 line-through">
+                              {formatPrice(pkg.price)}
+                            </span>
+                          </div>
+                        </>
+                      ) : (
+                        <span className="text-5xl font-black text-purple-300">
+                          {formatPrice(pkg.price)}
+                        </span>
+                      )}
                       <p className="mt-2 text-sm text-white/70">{t.serverDollars}</p>
                     </div>
 
