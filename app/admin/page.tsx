@@ -655,22 +655,22 @@ export default function AdminPage() {
                           {new Date(application.created_at).toLocaleString("pl-PL")}
                         </p>
 
-                        <div className="flex flex-wrap gap-3 mt-5">
-                          <button
-                            onClick={() => updateStatus("recruitment_applications", application.id, "accepted")}
-                            disabled={busyId === application.id}
-                            className="rounded-xl bg-green-600 hover:bg-green-500 disabled:opacity-50 px-4 py-3 font-bold"
-                          >
-                            Przyjmij
-                          </button>
-                          <button
-                            onClick={() => updateStatus("recruitment_applications", application.id, "rejected")}
-                            disabled={busyId === application.id}
-                            className="rounded-xl bg-red-600 hover:bg-red-500 disabled:opacity-50 px-4 py-3 font-bold"
-                          >
-                            Odrzuć
-                          </button>
-                        </div>
+                        {canManageAccounts && application.status === "pending" && <div className="mt-5 flex flex-wrap gap-3">
+                          <button onClick={async () => {
+                            if (!supabase || !window.confirm("Zatwierdzić podanie i nadać rolę Admin?")) return;
+                            setBusyId(application.id);
+                            const { error } = await supabase.rpc("review_admin_application", { p_application_id: application.id, p_decision: "accepted" });
+                            setMessage(error ? error.message : "Podanie zaakceptowane. Użytkownik otrzymał rolę Admin.");
+                            await loadApplications(); setBusyId("");
+                          }} disabled={busyId === application.id} className="rounded-xl bg-green-600 px-4 py-3 font-bold disabled:opacity-50">Zatwierdź podanie</button>
+                          <button onClick={async () => {
+                            if (!supabase || !window.confirm("Odrzucić podanie?")) return;
+                            setBusyId(application.id);
+                            const { error } = await supabase.rpc("review_admin_application", { p_application_id: application.id, p_decision: "rejected" });
+                            setMessage(error ? error.message : "Podanie odrzucone.");
+                            await loadApplications(); setBusyId("");
+                          }} disabled={busyId === application.id} className="rounded-xl bg-red-600 px-4 py-3 font-bold disabled:opacity-50">Odrzuć</button>
+                        </div>}
                       </article>
                     ))}
                   </div>
