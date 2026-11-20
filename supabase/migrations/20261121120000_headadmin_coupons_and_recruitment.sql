@@ -66,7 +66,7 @@ grant execute on function public.review_admin_application(uuid,text) to authenti
 
 create or replace function public.get_discount_code_discount(p_code text, p_package_type text)
 returns integer language plpgsql stable security definer set search_path = ''
-as $
+as $$
 declare v_discount integer;
 begin
   if auth.uid() is null then raise exception 'Musisz się zalogować.'; end if;
@@ -75,7 +75,7 @@ begin
       and package_type = p_package_type and (expires_at is null or expires_at > now());
   return coalesce(v_discount, 0);
 end;
-$;
+$$;
 revoke all on function public.get_discount_code_discount(text,text) from public;
 grant execute on function public.get_discount_code_discount(text,text) to authenticated;
 
