@@ -1,6 +1,8 @@
 name: Build check
 
 on:
+  push:
+    branches: [beta-08-implementation]
   pull_request:
     branches: [main]
     types: [opened, synchronize, reopened, ready_for_review]
