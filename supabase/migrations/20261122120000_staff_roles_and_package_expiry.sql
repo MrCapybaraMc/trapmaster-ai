@@ -137,3 +137,45 @@ before insert or update of status, package_type
 on public.orders
 for each row
 execute function public.set_order_entitlement_expiry();
+
+
+-- Allow Owner/HeadAdmin to grant the regular Admin role directly by account email.
+create or replace function public.grant_admin_by_email(p_email text)
+returns boolean
+language plpgsql
+security definer
+set search_path = ''
+as $$
+declare
+  v_actor_role text;
+  v_user_id uuid;
+begin
+  select role into v_actor_role
+  from public.admin_users
+  where user_id = auth.uid();
+
+  if auth.uid() is null or v_actor_role not in ('owner', 'headadmin') then
+    raise exception 'Tylko Owner lub HeadAdmin może nadawać rangę Admin.';
+  end if;
+
+  select id into v_user_id
+  from auth.users
+  where lower(email) = lower(trim(coalesce(p_email, '')))
+  limit 1;
+
+  if v_user_id is null then
+    raise exception 'Nie znaleziono konta o podanym adresie e-mail.';
+  end if;
+
+  insert into public.admin_users(user_id, role)
+  values (v_user_id, 'admin')
+  on conflict (user_id) do update
+    set role = 'admin'
+    where public.admin_users.role = 'admin';
+
+  return true;
+end;
+$$;
+
+revoke all on function public.grant_admin_by_email(text) from public;
+grant execute on function public.grant_admin_by_email(text) to authenticated;
