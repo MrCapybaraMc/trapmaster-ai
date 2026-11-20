@@ -4,7 +4,7 @@
 import { useCallback, useEffect, useState } from "react";
 import { createClient } from "../../lib/supabase/client";
 
-type Tab = "orders" | "support" | "recruitment" | "stats" | "access";
+type Tab = "orders" | "support" | "recruitment" | "stats" | "access" | "accounts";
 
 type Order = {
   order_id: string;
@@ -57,7 +57,7 @@ export default function AdminPage() {
   const [busyId, setBusyId] = useState("");
   const [message, setMessage] = useState("");
   const [stats, setStats] = useState<any>(null);
-  const [accessUsers, setAccessUsers] = useState<any[]>([]);
+  const [accessUsers, setAccessUsers] = useState<any[]>([]);\n  const [accountUsers, setAccountUsers] = useState<any[]>([]);
 
   const loadOrders = useCallback(async () => {
     const { data, error } = await supabase.rpc("get_orders");
@@ -91,7 +91,7 @@ export default function AdminPage() {
     if (error) setMessage(error.message); else setAccessUsers(data || []);
   }, [supabase]);
 
-  const loadApplications = useCallback(async () => {
+  const loadAccountUsers = useCallback(async () => {\n    const { data, error } = await supabase.rpc("get_account_suspension_users");\n    if (error) setMessage(error.message); else setAccountUsers(data || []);\n  }, [supabase]);\n\n  const loadApplications = useCallback(async () => {
     const { data, error } = await supabase.rpc(
       "get_recruitment_applications"
     );
@@ -112,10 +112,10 @@ export default function AdminPage() {
     if (tab === "support") await loadTickets();
     if (tab === "recruitment") await loadApplications();
     if (tab === "stats") await loadStats();
-    if (tab === "access") await loadAccess();
+    if (tab === "access") await loadAccess();\n    if (tab === "accounts") await loadAccountUsers();
 
     setLoading(false);
-  }, [tab, loadOrders, loadTickets, loadApplications, loadStats, loadAccess]);
+  }, [tab, loadOrders, loadTickets, loadApplications, loadStats, loadAccess, loadAccountUsers]);
 
   useEffect(() => {
     refresh();
@@ -184,7 +184,7 @@ export default function AdminPage() {
     await loadAccess(); setBusyId("");
   }
 
-  function statusLabel(status: string) {
+  async function changeAccountSuspension(userId: string, suspend: boolean) {\n    const action = suspend ? "zablokować całe konto" : "przywrócić dostęp do całej strony";\n    if (!window.confirm(`Czy na pewno chcesz ${action} temu użytkownikowi?`)) return;\n    setBusyId(userId); setMessage("");\n    const { error } = await supabase.rpc(suspend ? "suspend_trapmasters_account" : "restore_trapmasters_account", { p_user_id: userId });\n    setMessage(error ? error.message : suspend ? "Konto zostało zablokowane." : "Dostęp do strony został przywrócony.");\n    await loadAccountUsers(); setBusyId("");\n  }\n\n  function statusLabel(status: string) {
     const labels: Record<string, string> = {
       pending: "Oczekujące",
       approved: "Zaakceptowane",
@@ -268,7 +268,7 @@ export default function AdminPage() {
 
           <button className={buttonClass(tab === "recruitment")} onClick={() => setTab("recruitment")}>Zgłoszenia rekrutacyjne ({applications.length})</button>
           <button className={buttonClass(tab === "stats")} onClick={() => setTab("stats")}>Statystyki</button>
-          <button className={buttonClass(tab === "access")} onClick={() => setTab("access")}>Dostęp TrapMaster</button>
+          <button className={buttonClass(tab === "access")} onClick={() => setTab("access")}>Dostęp TrapMaster</button>\n          <button className={buttonClass(tab === "accounts")} onClick={() => setTab("accounts")}>Blokady kont</button>
         </nav>
 
         {message && (
@@ -293,7 +293,7 @@ export default function AdminPage() {
               </section>
             )}
 
-            {tab === "access" && (
+            {tab === "accounts" && (\n              <section className="rounded-2xl border border-white/10 bg-black/40 p-5 md:p-7">\n                <h2 className="mb-2 text-2xl font-bold">Blokowanie kont na stronie</h2>\n                <p className="mb-6 text-sm text-gray-400">Blokada ukrywa całą zawartość strony po zalogowaniu. Konta administratorów i właściciela nie są dostępne do zablokowania.</p>\n                <div className="space-y-3">\n                  {accountUsers.map((u) => (\n                    <article key={u.user_id} className="flex flex-wrap items-center justify-between gap-4 rounded-xl border border-white/10 bg-white/5 p-4">\n                      <div><p className="font-bold">{u.display_name}</p><p className="text-xs text-gray-400">{u.email || u.user_id}</p><p className="mt-1 text-xs text-gray-500">{u.suspended ? `Konto zablokowane · ${u.suspended_at ? new Date(u.suspended_at).toLocaleString("pl-PL") : ""}` : "Konto aktywne"}</p></div>\n                      <button disabled={busyId === u.user_id} onClick={() => changeAccountSuspension(u.user_id, !u.suspended)} className={u.suspended ? "rounded-xl bg-green-600 px-4 py-3 font-bold disabled:opacity-50" : "rounded-xl bg-red-600 px-4 py-3 font-bold disabled:opacity-50"}>{u.suspended ? "Odblokuj konto" : "Zablokuj konto"}</button>\n                    </article>\n                  ))}\n                  {accountUsers.length === 0 && <p className="text-gray-400">Brak kont do wyświetlenia.</p>}\n                </div>\n              </section>\n            )}\n\n            {tab === "access" && (
               <section className="rounded-2xl border border-white/10 bg-black/40 p-5 md:p-7">
                 <h2 className="mb-2 text-2xl font-bold">Zarządzanie dostępem</h2>
                 <p className="mb-6 text-sm text-gray-400">Możesz odebrać lub przywrócić dostęp użytkownikowi. Konta administratorów i właściciela są chronione.</p>
