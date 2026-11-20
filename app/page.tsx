@@ -14,7 +14,7 @@ type Package = {
   popular?: boolean;
 };
 
-type UserRole = "user" | "admin" | "owner";
+type UserRole = "user" | "admin" | "headadmin" | "owner";
 type Language = "pl" | "en";
 type Tab =
   | "forum"
@@ -463,6 +463,9 @@ export default function Home() {
   const [copied, setCopied] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [orderMessage, setOrderMessage] = useState("");
+  const [discountCode, setDiscountCode] = useState("");
+  const [couponDiscount, setCouponDiscount] = useState(0);
+  const [couponMessage, setCouponMessage] = useState("");
   const [orderSuccess, setOrderSuccess] = useState(false);
 
   const [forumPosts, setForumPosts] = useState<ForumPost[]>([]);
@@ -504,7 +507,7 @@ export default function Home() {
   const [adminMessage, setAdminMessage] = useState("");
 
   const t = translations[language];
-  const isAdmin = userRole === "admin" || userRole === "owner";
+  const isAdmin = userRole === "admin" || userRole === "headadmin" || userRole === "owner";
 
   const loadProfile = useCallback(async (id: string) => {
     if (!id) { setProfile(null); return; }
@@ -974,9 +977,9 @@ export default function Home() {
   }
 
   // Zamówienia.
-  const discount = userRole === "admin" || userRole === "owner"
+  const discount = userRole === "admin" || userRole === "headadmin" || userRole === "owner"
     ? selected?.id === "forever" ? 20 : 30
-    : 0;
+    : couponDiscount;
 
   const finalPrice = selected
     ? Number((selected.price * (100 - discount) / 100).toFixed(2))
@@ -992,6 +995,7 @@ export default function Home() {
     setCopied(false);
     setOrderMessage("");
     setOrderSuccess(false);
+    setDiscountCode(""); setCouponDiscount(0); setCouponMessage("");
 
     setTimeout(() => {
       document.getElementById("payment")?.scrollIntoView({
@@ -1000,6 +1004,13 @@ export default function Home() {
     }, 100);
   }
 
+  async function applyDiscountCode() {
+    if (!selected || !loggedIn || !discountCode.trim()) { setCouponMessage("Wpisz kod rabatowy."); return; }
+    const { data, error } = await supabase.rpc("get_discount_code_discount", { p_code: discountCode.trim(), p_package_type: selected.id });
+    if (error) { setCouponDiscount(0); setCouponMessage(error.message); return; }
+    if (!data) { setCouponDiscount(0); setCouponMessage("Kod jest nieprawidłowy, wygasł lub nie działa na ten pakiet."); return; }
+    setCouponDiscount(Number(data)); setCouponMessage("Kod aktywny: zniżka " + data + "%.");
+  }
   async function copyCommand() {
     try {
       await navigator.clipboard.writeText(paymentCommand);
@@ -1032,7 +1043,7 @@ export default function Home() {
     const { data, error } = await supabase.rpc("create_order", {
       p_minecraft_nick: minecraftNick.trim(),
       p_package_type: selected.id,
-      p_discount_code: "",
+      p_discount_code: discountCode.trim(),
     });
 
     setSubmitting(false);
@@ -1428,6 +1439,14 @@ export default function Home() {
                   </div>
 
 
+                  {userRole === "user" && <div className="mb-5 rounded-xl border border-white/15 bg-black/40 p-5">
+                    <label className="mb-2 block text-sm text-white/80">Kod rabatowy</label>
+                    <div className="flex flex-wrap gap-2">
+                      <input value={discountCode} onChange={(e) => { setDiscountCode(e.target.value); setCouponDiscount(0); setCouponMessage(""); }} placeholder="Wpisz kod" className="min-w-0 flex-1 rounded-xl bg-black/50 p-3 text-white" />
+                      <button onClick={applyDiscountCode} className="rounded-xl bg-purple-600 px-4 py-3 font-bold">Zastosuj</button>
+                    </div>
+                    {couponMessage && <p className="mt-2 text-sm text-white/80">{couponMessage}</p>}
+                  </div>}
                   <div className="mt-8 rounded-xl border border-white/15 bg-black/40 p-5">
                     <p className="text-white/70">{t.priceToPay}</p>
                     <p className="mt-2 text-4xl font-black text-purple-300">
