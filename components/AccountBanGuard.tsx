@@ -11,23 +11,53 @@ export default function AccountBanGuard({ children }: { children: React.ReactNod
     const supabase = createClient();
     let active = true;
 
-    async function checkAccount() {
-      const { data: sessionData } = await supabase.auth.getSession();
-      if (!sessionData.session?.user) {
-        if (active) { setBlocked(false); setChecking(false); }
-        return;
-      }
-      const { data, error } = await supabase.rpc("is_trapmasters_account_suspended");
-      if (active) {
-        setBlocked(!error && data === true);
-        setChecking(false);
+    async function withTimeout<T>(promise: Promise<T>, ms = 5000): Promise<T> {
+      let timeoutId: ReturnType<typeof setTimeout> | undefined;
+      try {
+        return await Promise.race([
+          promise,
+          new Promise<T>((_, reject) => {
+            timeoutId = setTimeout(() => reject(new Error("Access check timed out")), ms);
+          }),
+        ]);
+      } finally {
+        if (timeoutId) clearTimeout(timeoutId);
       }
     }
 
-    checkAccount();
+    async function checkAccount() {
+      try {
+        const { data: sessionData } = await withTimeout(supabase.auth.getSession());
+        if (!sessionData.session?.user) {
+          if (active) {
+            setBlocked(false);
+            setChecking(false);
+          }
+          return;
+        }
+
+        const { data, error } = await withTimeout(
+          supabase.rpc("is_trapmasters_account_suspended")
+        );
+        if (active) {
+          setBlocked(!error && data === true);
+          setChecking(false);
+        }
+      } catch (error) {
+        console.error("Account suspension check failed:", error);
+        // Fail open if the access-check service is unavailable; the server-side
+        // data API protection remains responsible for enforcing suspensions.
+        if (active) {
+          setBlocked(false);
+          setChecking(false);
+        }
+      }
+    }
+
+    void checkAccount();
     const { data: authListener } = supabase.auth.onAuthStateChange(() => {
-      setChecking(true);
-      checkAccount();
+      if (active) setChecking(true);
+      void checkAccount();
     });
 
     return () => {
