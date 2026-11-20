@@ -2,7 +2,7 @@
 
 import { useEffect } from "react";
 
-export default function GlobalError({ error, reset }) {
+export default function GlobalError({ error, reset }: { error: Error & { digest?: string }; reset: () => void }) {
   useEffect(() => {
     console.error("TrapMasters root layout error:", error);
   }, [error]);
