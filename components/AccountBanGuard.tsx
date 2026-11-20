@@ -5,7 +5,6 @@ import { createClient } from "../lib/supabase/client";
 
 export default function AccountBanGuard({ children }: { children: React.ReactNode }) {
   const [blocked, setBlocked] = useState(false);
-  const [checking, setChecking] = useState(true);
 
   useEffect(() => {
     const supabase = createClient();
@@ -29,35 +28,28 @@ export default function AccountBanGuard({ children }: { children: React.ReactNod
       try {
         const { data: sessionData } = await withTimeout(supabase.auth.getSession());
         if (!sessionData.session?.user) {
-          if (active) {
-            setBlocked(false);
-            setChecking(false);
-          }
+          if (active) setBlocked(false);
           return;
         }
 
         const { data, error } = await withTimeout(
           supabase.rpc("is_trapmasters_account_suspended")
         );
-        if (active) {
-          setBlocked(!error && data === true);
-          setChecking(false);
-        }
+        if (active) setBlocked(!error && data === true);
       } catch (error) {
         console.error("Account suspension check failed:", error);
-        // Fail open if the access-check service is unavailable; the server-side
-        // data API protection remains responsible for enforcing suspensions.
-        if (active) {
-          setBlocked(false);
-          setChecking(false);
-        }
+        // Keep the site usable if the optional client-side check is unavailable.
+        // Suspended users remain restricted by the server-side Data API check.
+        if (active) setBlocked(false);
       }
     }
 
     void checkAccount();
     const { data: authListener } = supabase.auth.onAuthStateChange(() => {
-      if (active) setChecking(true);
-      void checkAccount();
+      // Run after the auth callback returns to avoid holding Supabase's auth lock.
+      queueMicrotask(() => {
+        if (active) void checkAccount();
+      });
     });
 
     return () => {
@@ -65,10 +57,6 @@ export default function AccountBanGuard({ children }: { children: React.ReactNod
       authListener.subscription.unsubscribe();
     };
   }, []);
-
-  if (checking) {
-    return <div className="min-h-screen bg-[#080b12] text-white grid place-items-center">Sprawdzanie dostępu...</div>;
-  }
 
   if (blocked) {
     return (
@@ -83,5 +71,7 @@ export default function AccountBanGuard({ children }: { children: React.ReactNod
     );
   }
 
+  // Do not gate initial rendering on a network request. The check runs in the
+  // background; server-side API protection remains authoritative.
   return <>{children}</>;
 }
