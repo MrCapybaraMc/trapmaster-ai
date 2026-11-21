@@ -118,6 +118,7 @@ export default function AdminPage() {
           const role = !roleError ? roleData?.role || "" : "";
           setUserRole(role);
           setIsOwner(role === "owner");
+          setTab(role === "owner" || role === "headadmin" ? "owner" : "orders");
           if (!["admin", "headadmin", "owner"].includes(role)) {
             setMessage("Brak uprawnień do panelu administracyjnego.");
           }
@@ -466,7 +467,7 @@ export default function AdminPage() {
               </section>
             )}
 
-            {(tab === "accounts" || tab === "owner") && (
+            {(tab === "accounts" || tab === "owner") && (tab !== "owner" || canManageAccounts) && (
               <section className="rounded-2xl border border-white/10 bg-black/40 p-5 md:p-7">
                 <h2 className="mb-2 text-2xl font-bold">Zarządzanie kontami użytkowników</h2>
                 <p className="mb-3 text-sm text-gray-400">Resetowanie haseł jest wyłączone. Owner i HeadAdmin mogą usuwać zwykłe konta; konta administracyjne są chronione.</p>
