@@ -174,7 +174,13 @@ function MoneyRain({ burstKey }: { burstKey: number }) {
 
 export default function TrapmasterAIPage() {
   const router = useRouter();
-  const [supabase] = useState(() => createClient());
+  // Avoid creating the browser Supabase client during Next.js server prerendering.
+  const [supabase] = useState<ReturnType<typeof createClient>>(() => {
+    if (typeof window === "undefined") {
+      return null as unknown as ReturnType<typeof createClient>;
+    }
+    return createClient();
+  });
 
   const [checkingAccess, setCheckingAccess] = useState(true);
   const [hasAccess, setHasAccess] = useState(false);
@@ -193,7 +199,9 @@ export default function TrapmasterAIPage() {
 
   useEffect(() => {
     const savedLanguage = localStorage.getItem("trapmasters-language");
-    if (savedLanguage) setLanguage(savedLanguage);
+    const frame = window.requestAnimationFrame(() => {
+      if (savedLanguage) setLanguage(savedLanguage);
+    });
 
     const handleLanguageChange = (event: Event) => {
       const customEvent = event as CustomEvent<string>;
@@ -201,7 +209,10 @@ export default function TrapmasterAIPage() {
     };
 
     window.addEventListener("trapmasters-language-change", handleLanguageChange);
-    return () => window.removeEventListener("trapmasters-language-change", handleLanguageChange);
+    return () => {
+      window.cancelAnimationFrame(frame);
+      window.removeEventListener("trapmasters-language-change", handleLanguageChange);
+    };
   }, []);
 
   const isEnglish = language === "en";
@@ -285,7 +296,9 @@ export default function TrapmasterAIPage() {
       localStorage.getItem(STORAGE_KEY) ??
       localStorage.getItem(LEGACY_STORAGE_KEY);
 
-    setSoundEnabled(saved === "true");
+    const frame = window.requestAnimationFrame(() => {
+      setSoundEnabled(saved === "true");
+    });
 
     const handleMusicChange = (event: Event) => {
       const customEvent = event as CustomEvent<boolean>;
@@ -295,6 +308,7 @@ export default function TrapmasterAIPage() {
     window.addEventListener(MUSIC_EVENT, handleMusicChange);
 
     return () => {
+      window.cancelAnimationFrame(frame);
       window.removeEventListener(MUSIC_EVENT, handleMusicChange);
     };
   }, []);
@@ -328,8 +342,6 @@ export default function TrapmasterAIPage() {
 
   useEffect(() => {
     if (moneyBurst === 0) return;
-
-    setShowMoney(true);
 
     const timeout = window.setTimeout(() => {
       setShowMoney(false);
@@ -424,6 +436,7 @@ export default function TrapmasterAIPage() {
     setArmor(option);
 
     if (option === "Szmaragdowa") {
+      setShowMoney(true);
       setMoneyBurst((previous) => previous + 1);
       playEffectSound(moneyAudioRef.current);
     }

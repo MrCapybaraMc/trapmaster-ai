@@ -3,6 +3,7 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
+import Link from "next/link";
 import { createClient } from "../../lib/supabase/client";
 
 export default function RegisterPage() {
@@ -11,7 +12,9 @@ export default function RegisterPage() {
 
   const [mode, setMode] = useState("register");
   const [email, setEmail] = useState("");
+  const [nickname, setNickname] = useState("");
   const [password, setPassword] = useState("");
+  const [confirmPassword, setConfirmPassword] = useState("");
   const [message, setMessage] = useState("");
   const [loading, setLoading] = useState(false);
 
@@ -22,9 +25,13 @@ export default function RegisterPage() {
 
     try {
       if (mode === "register") {
+        const cleanNickname = nickname.trim();
+        if (cleanNickname.length < 3 || cleanNickname.length > 32) throw new Error("Nick konta musi mieć od 3 do 32 znaków.");
+        if (password !== confirmPassword) throw new Error("Hasła nie są identyczne.");
         const { data, error } = await supabase.auth.signUp({
           email,
           password,
+          options: { data: { nickname: cleanNickname, display_name: cleanNickname } },
         });
 
         if (error) throw error;
@@ -57,9 +64,9 @@ export default function RegisterPage() {
   return (
     <main className="min-h-screen bg-[#080b12] text-white flex items-center justify-center p-5">
       <div className="w-full max-w-md rounded-2xl border border-white/10 bg-[#111827] p-8 shadow-2xl">
-        <a href="/" className="text-sm text-gray-400 hover:text-white">
+        <Link href="/" className="text-sm text-gray-400 hover:text-white">
           ← Powrót na stronę główną
-        </a>
+        </Link>
 
         <h1 className="mt-6 text-3xl font-black">
           TRAP<span className="text-purple-400">MASTERS</span>
@@ -96,6 +103,10 @@ export default function RegisterPage() {
         </div>
 
         <form onSubmit={handleSubmit} className="mt-6 space-y-4">
+          {mode === "register" && <div>
+            <label className="mb-2 block text-sm text-gray-300">Nickname konta</label>
+            <input type="text" required minLength={3} maxLength={32} value={nickname} onChange={(e) => setNickname(e.target.value)} className="w-full rounded-xl border border-white/10 bg-black/30 p-3 outline-none focus:border-purple-500" placeholder="Twój nickname" />
+          </div>}
           <div>
             <label className="mb-2 block text-sm text-gray-300">E-mail</label>
             <input
@@ -121,6 +132,10 @@ export default function RegisterPage() {
             />
           </div>
 
+          {mode === "register" && <div>
+            <label className="mb-2 block text-sm text-gray-300">Powtórz hasło</label>
+            <input type="password" required minLength={6} value={confirmPassword} onChange={(e) => setConfirmPassword(e.target.value)} className="w-full rounded-xl border border-white/10 bg-black/30 p-3 outline-none focus:border-purple-500" placeholder="Wpisz hasło ponownie" />
+          </div>}
           <button
             type="submit"
             disabled={loading}

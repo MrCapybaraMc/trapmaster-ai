@@ -4,7 +4,7 @@
 import { useCallback, useEffect, useState } from "react";
 import { createClient } from "../../lib/supabase/client";
 
-type Tab = "orders" | "support" | "recruitment";
+type Tab = "owner" | "orders" | "support" | "recruitment" | "stats" | "access" | "accounts";
 
 type Order = {
   order_id: string;
@@ -22,9 +22,20 @@ type SupportTicket = {
   user_email: string | null;
   subject: string;
   message: string;
+  category?: string;
+  priority?: string;
+  related_order?: string | null;
+  page_url?: string | null;
   status: string;
   created_at: string;
 };
+
+type StaffRow = { user_id: string; role: string };
+type ProfileRow = { user_id: string; nickname: string | null };
+type StaffUser = StaffRow & { nickname: string };
+type AccessUser = { user_id: string; display_name: string | null; email: string | null; access_type: string; revoked: boolean; expires_at: string | null };
+type AccountUser = { user_id: string; display_name: string | null; email: string | null; suspended: boolean; suspended_at: string | null };
+type DiscountCode = { code: string; active: boolean; expires_at: string | null; discount_percent: number; package_type: string };
 
 type Application = {
   id: string;
@@ -33,23 +44,102 @@ type Application = {
   minecraft_nick: string;
   experience: string;
   motivation: string;
+  likes_zenciaka?: boolean;
+  applicant_age?: number | null;
+  first_name?: string | null;
+  about?: string | null;
   status: string;
   created_at: string;
 };
 
+function VideoBackground() {
+  return (
+    <>
+      <video
+        autoPlay
+        muted
+        loop
+        playsInline
+        className="fixed inset-0 w-full h-full object-cover -z-20"
+      >
+        <source src="/videos/for.mp4" type="video/mp4" />
+      </video>
+      <div className="fixed inset-0 bg-[#050811]/75 -z-10" />
+    </>
+  );
+}
+
 export default function AdminPage() {
-  const [supabase] = useState(() => createClient());
-  const [tab, setTab] = useState<Tab>("orders");
+  const [supabase, setSupabase] = useState<ReturnType<typeof createClient> | null>(null);
+
+  const [tab, setTab] = useState<Tab>("owner");
 
   const [orders, setOrders] = useState<Order[]>([]);
   const [tickets, setTickets] = useState<SupportTicket[]>([]);
   const [applications, setApplications] = useState<Application[]>([]);
 
   const [loading, setLoading] = useState(true);
+  const [isOwner, setIsOwner] = useState(false);
+  const [userRole, setUserRole] = useState("");
+  const canManageAccounts = userRole === "owner" || userRole === "headadmin";
   const [busyId, setBusyId] = useState("");
   const [message, setMessage] = useState("");
+  const [stats, setStats] = useState<Record<string, number | string | null> | null>(null);
+  const [accessUsers, setAccessUsers] = useState<AccessUser[]>([]);
+  const [accountUsers, setAccountUsers] = useState<AccountUser[]>([]);
+  const [discountCodes, setDiscountCodes] = useState<DiscountCode[]>([]);
+  const [staffUsers, setStaffUsers] = useState<StaffUser[]>([]);
+  const [adminGrantEmail, setAdminGrantEmail] = useState("");
+  const [newCode, setNewCode] = useState("");
+  const [newCodePackage, setNewCodePackage] = useState("day");
+  const [newCodePercent, setNewCodePercent] = useState("10");
+  const [newCodeHours, setNewCodeHours] = useState("");
+
+  useEffect(() => {
+    let active = true;
+    const frame = window.requestAnimationFrame(() => {
+      void (async () => {
+        try {
+          const client = createClient();
+          if (!active) return;
+          setSupabase(client);
+          const { data: userData, error: userError } = await client.auth.getUser();
+          if (!active) return;
+          if (userError || !userData.user) {
+            setIsOwner(false);
+            return;
+          }
+          const { data: roleData, error: roleError } = await client
+            .from("admin_users")
+            .select("role")
+            .eq("user_id", userData.user.id)
+            .maybeSingle();
+          if (!active) return;
+          const role = !roleError ? roleData?.role || "" : "";
+          setUserRole(role);
+          setIsOwner(role === "owner");
+          setTab(role === "owner" || role === "headadmin" ? "owner" : "orders");
+          if (!["admin", "headadmin", "owner"].includes(role)) {
+            setMessage("Brak uprawnień do panelu administracyjnego.");
+          }
+        } catch (error) {
+          console.error("Supabase client initialization failed:", error);
+          if (active) {
+            setMessage("Brak konfiguracji Supabase. Sprawdź zmienne środowiskowe projektu.");
+            setLoading(false);
+          }
+        }
+      })();
+    });
+
+    return () => {
+      active = false;
+      window.cancelAnimationFrame(frame);
+    };
+  }, []);
 
   const loadOrders = useCallback(async () => {
+    if (!supabase) return;
     const { data, error } = await supabase.rpc("get_orders");
 
     if (error) {
@@ -61,6 +151,7 @@ export default function AdminPage() {
   }, [supabase]);
 
   const loadTickets = useCallback(async () => {
+    if (!supabase) return;
     const { data, error } = await supabase.rpc("get_support_tickets");
 
     if (error) {
@@ -71,7 +162,84 @@ export default function AdminPage() {
     }
   }, [supabase]);
 
+  const loadStats = useCallback(async () => {
+    if (!supabase) return;
+    const { data, error } = await supabase.rpc("get_site_stats");
+    if (error) setMessage(error.message); else setStats(data?.[0] || null);
+  }, [supabase]);
+
+  const loadAccess = useCallback(async () => {
+    if (!supabase) return;
+    const { data, error } = await supabase.rpc("get_access_users");
+    if (error) setMessage(error.message); else setAccessUsers(data || []);
+  }, [supabase]);
+
+  const loadAccountUsers = useCallback(async () => {
+    if (!supabase) return;
+    const { data, error } = await supabase.rpc("get_account_suspension_users");
+    if (error) setMessage(error.message); else setAccountUsers(data || []);
+  }, [supabase]);
+
+  const loadStaffUsers = useCallback(async () => {
+    if (!supabase || !["owner", "headadmin"].includes(userRole)) return;
+    const { data, error } = await supabase.from("admin_users").select("user_id, role").order("created_at", { ascending: true });
+    if (error) { setMessage(error.message); return; }
+    const ids = (data || []).map((row: StaffRow) => row.user_id);
+    const { data: profiles } = ids.length ? await supabase.from("profiles").select("user_id, nickname").in("user_id", ids) : { data: [] as ProfileRow[] };
+    setStaffUsers((data || []).map((row: StaffRow) => ({ ...row, nickname: profiles?.find((p: ProfileRow) => p.user_id === row.user_id)?.nickname || row.user_id })));
+  }, [supabase, userRole]);
+
+  async function changeStaffRole(userId: string, role: "admin" | "headadmin") {
+    if (!supabase || (userRole !== "owner" && !(userRole === "headadmin" && role === "admin"))) return;
+    if (!window.confirm("Zmienić rolę tego członka administracji na " + (role === "headadmin" ? "HeadAdmin" : "Admin") + "?")) return;
+    setBusyId(userId);
+    const { error } = await supabase.rpc("set_staff_role", { p_user_id: userId, p_role: role });
+    setMessage(error ? error.message : "Rola została zmieniona.");
+    await loadStaffUsers(); setBusyId("");
+  }
+
+  async function grantAdminByEmail() {
+    if (!supabase || !["owner", "headadmin"].includes(userRole)) return;
+    const email = adminGrantEmail.trim();
+    if (!email || !email.includes("@")) { setMessage("Wpisz poprawny adres e-mail."); return; }
+    if (!window.confirm("Nadać temu użytkownikowi rangę Admin?")) return;
+    setBusyId("grant-admin");
+    const { error } = await supabase.rpc("grant_admin_by_email", { p_email: email });
+    setMessage(error ? error.message : "Nadano rangę Admin.");
+    if (!error) setAdminGrantEmail("");
+    await loadStaffUsers();
+    setBusyId("");
+  }
+
+  const loadDiscountCodes = useCallback(async () => {
+    if (!supabase || !canManageAccounts) return;
+    const { data, error } = await supabase.from("discount_codes").select("*").order("created_at", { ascending: false });
+    if (error) setMessage(error.message); else setDiscountCodes(data || []);
+  }, [supabase, canManageAccounts]);
+
+  async function createDiscountCode() {
+    if (!supabase || !canManageAccounts) return;
+    const code = newCode.trim().toUpperCase();
+    const percent = Number(newCodePercent);
+    const hours = newCodeHours.trim() === "" ? null : Number(newCodeHours);
+    if (!/^[A-Z0-9_-]{3,40}$/.test(code) || !Number.isInteger(percent) || percent < 1 || percent > 100 || (hours !== null && (!Number.isFinite(hours) || hours <= 0 || hours > 87600))) { setMessage("Sprawdź kod, procent i liczbę godzin."); return; }
+    setBusyId("new-discount");
+    const expiresAt = hours === null ? null : new Date(Date.now() + hours * 3600000).toISOString();
+    const { error } = await supabase.from("discount_codes").insert({ code, package_type: newCodePackage, discount_percent: percent, expires_at: expiresAt, created_by: (await supabase.auth.getUser()).data.user?.id });
+    setMessage(error ? error.message : "Kod rabatowy został utworzony.");
+    if (!error) { setNewCode(""); setNewCodeHours(""); await loadDiscountCodes(); }
+    setBusyId("");
+  }
+
+  async function disableDiscountCode(code: string) {
+    if (!supabase || !canManageAccounts || !window.confirm("Wyłączyć kod " + code + "?")) return;
+    setBusyId(code);
+    const { error } = await supabase.from("discount_codes").update({ active: false, disabled_at: new Date().toISOString(), disabled_by: (await supabase.auth.getUser()).data.user?.id }).eq("code", code);
+    setMessage(error ? error.message : "Kod został wyłączony.");
+    await loadDiscountCodes(); setBusyId("");
+  }
   const loadApplications = useCallback(async () => {
+    if (!supabase) return;
     const { data, error } = await supabase.rpc(
       "get_recruitment_applications"
     );
@@ -91,15 +259,24 @@ export default function AdminPage() {
     if (tab === "orders") await loadOrders();
     if (tab === "support") await loadTickets();
     if (tab === "recruitment") await loadApplications();
+    if (tab === "stats") await loadStats();
+    if (tab === "access") await loadAccess();
+    if (tab === "accounts" || tab === "owner") await loadAccountUsers();
+    if (tab === "owner") { await loadDiscountCodes(); await loadStaffUsers(); }
 
     setLoading(false);
-  }, [tab, loadOrders, loadTickets, loadApplications]);
+  }, [tab, loadOrders, loadTickets, loadApplications, loadStats, loadAccess, loadAccountUsers, loadDiscountCodes, loadStaffUsers]);
 
   useEffect(() => {
-    refresh();
-  }, [refresh]);
+    if (!supabase) return;
+    const frame = window.requestAnimationFrame(() => {
+      void refresh();
+    });
+    return () => window.cancelAnimationFrame(frame);
+  }, [supabase, refresh]);
 
   async function reviewOrder(orderId: string, decision: string) {
+    if (!supabase) return;
     const question =
       decision === "approved"
         ? "Czy zaakceptować zamówienie?"
@@ -132,6 +309,7 @@ export default function AdminPage() {
     id: string,
     status: string
   ) {
+    if (!supabase) return;
     if (!window.confirm("Czy na pewno zmienić status zgłoszenia?")) return;
 
     setBusyId(id);
@@ -150,6 +328,49 @@ export default function AdminPage() {
       else await loadApplications();
     }
 
+    setBusyId("");
+  }
+
+  async function changeAccess(userId: string, action: "revoke" | "restore") {
+    if (!supabase) return;
+    const label = action === "revoke" ? "odebrać" : "przywrócić";
+    if (!window.confirm(`Czy na pewno ${label} dostęp TrapMaster temu użytkownikowi?`)) return;
+    setBusyId(userId);
+    const { error } = await supabase.rpc(action === "revoke" ? "revoke_trapmaster_access" : "restore_trapmaster_access", { p_user_id: userId });
+    setMessage(error ? error.message : action === "revoke" ? "Dostęp został odebrany." : "Dostęp został przywrócony.");
+    await loadAccess(); setBusyId("");
+  }
+
+  async function changeAccountSuspension(userId: string, suspend: boolean) {
+    if (!supabase) return;
+    const action = suspend ? "zablokować całe konto" : "przywrócić dostęp do całej strony";
+    if (!window.confirm(`Czy na pewno chcesz ${action} temu użytkownikowi?`)) return;
+    setBusyId(userId); setMessage("");
+    const { error } = await supabase.rpc(suspend ? "suspend_trapmasters_account" : "restore_trapmasters_account", { p_user_id: userId });
+    setMessage(error ? error.message : suspend ? "Konto zostało zablokowane." : "Dostęp do strony został przywrócony.");
+    await loadAccountUsers(); setBusyId("");
+  }
+
+  async function manageUserAccount(userId: string) {
+    if (!supabase) return;
+    const target = accountUsers.find((user) => user.user_id === userId);
+    if (!target) return;
+
+    const confirmed = window.confirm("Czy na pewno trwale usunąć konto " + (target.email || target.display_name) + "? Tej operacji nie można cofnąć.");
+    if (!confirmed) return;
+
+    setBusyId(userId);
+    setMessage("");
+    const { data, error } = await supabase.functions.invoke("admin-account-management", {
+      body: { action: "delete", user_id: userId },
+    });
+
+    if (error) {
+      setMessage(error.message || "Nie udało się wykonać operacji.");
+    } else {
+      setMessage(data?.message || "Operacja zakończona.");
+      await loadAccountUsers();
+    }
     setBusyId("");
   }
 
@@ -173,23 +394,6 @@ export default function AdminPage() {
         ? "bg-cyan-400 text-black"
         : "bg-white/10 text-white hover:bg-white/20"
     }`;
-
-  function VideoBackground() {
-    return (
-      <>
-        <video
-          autoPlay
-          muted
-          loop
-          playsInline
-          className="fixed inset-0 w-full h-full object-cover -z-20"
-        >
-          <source src="/videos/for.mp4" type="video/mp4" />
-        </video>
-        <div className="fixed inset-0 bg-[#050811]/75 -z-10" />
-      </>
-    );
-  }
 
   return (
     <main className="relative min-h-screen bg-[#080b12] text-white p-5 md:p-10">
@@ -220,7 +424,7 @@ export default function AdminPage() {
           </button>
         </header>
 
-        <nav className="flex flex-wrap gap-3 mb-7">
+        <nav className="flex flex-wrap gap-3 mb-7">\n          <button className={buttonClass(tab === "owner")} onClick={() => setTab("owner")}>Owner / HeadAdmin · kody i konta</button>
           <button
             className={buttonClass(tab === "orders")}
             onClick={() => setTab("orders")}
@@ -235,12 +439,10 @@ export default function AdminPage() {
             Zgłoszenia ({tickets.length})
           </button>
 
-          <button
-            className={buttonClass(tab === "recruitment")}
-            onClick={() => setTab("recruitment")}
-          >
-            Zgłoszenia rekrutacyjne ({applications.length})
-          </button>
+          <button className={buttonClass(tab === "recruitment")} onClick={() => setTab("recruitment")}>Zgłoszenia rekrutacyjne ({applications.length})</button>
+          <button className={buttonClass(tab === "stats")} onClick={() => setTab("stats")}>Statystyki</button>
+          <button className={buttonClass(tab === "access")} onClick={() => setTab("access")}>Dostęp TrapMaster</button>
+          <button className={buttonClass(tab === "accounts")} onClick={() => setTab("accounts")}>Zarządzanie kontami</button>
         </nav>
 
         {message && (
@@ -255,6 +457,76 @@ export default function AdminPage() {
           </div>
         ) : (
           <>
+            {tab === "stats" && (
+              <section className="grid gap-4 sm:grid-cols-2 lg:grid-cols-5">
+                <Stat title="Wszystkie odwiedziny" value={Number(stats?.total_visits || 0)} />
+                <Stat title="Dzisiaj" value={Number(stats?.today_visits || 0)} />
+                <Stat title="Ostatnie 7 dni" value={Number(stats?.week_visits || 0)} />
+                <Stat title="Zarejestrowane konta" value={Number(stats?.registered_users || 0)} />
+                <Stat title="Zatwierdzone zamówienia" value={Number(stats?.approved_orders || 0)} />
+              </section>
+            )}
+
+            {(tab === "accounts" || tab === "owner") && (tab !== "owner" || canManageAccounts) && (
+              <section className="rounded-2xl border border-white/10 bg-black/40 p-5 md:p-7">
+                <h2 className="mb-2 text-2xl font-bold">Zarządzanie kontami użytkowników</h2>
+                <p className="mb-3 text-sm text-gray-400">Resetowanie haseł jest wyłączone. Owner i HeadAdmin mogą usuwać zwykłe konta; konta administracyjne są chronione.</p>
+                {canManageAccounts && <div className="mb-4 rounded-xl border border-cyan-400/30 bg-cyan-400/10 p-4 text-sm text-cyan-100">
+                  <p className="font-black">UPRAWNIENIA: {userRole === "owner" ? "OWNER" : "HEADADMIN"}</p>
+                  <p className="mt-1">Możesz usuwać konta zwykłych użytkowników. Resetowanie haseł jest wyłączone.</p>
+                </div>}
+                {canManageAccounts && <div className="mb-6 rounded-xl border border-green-400/30 bg-green-400/10 p-5">
+                  <h3 className="mb-4 text-lg font-black">Kody rabatowe</h3>
+                  <div className="grid gap-3 sm:grid-cols-2">
+                    <input value={newCode} onChange={(e) => setNewCode(e.target.value)} placeholder="KOD RABATOWY" className="rounded-xl bg-black/40 p-3 text-white" />
+                    <select value={newCodePackage} onChange={(e) => setNewCodePackage(e.target.value)} className="rounded-xl bg-black/40 p-3 text-white"><option value="day">Dzienny</option><option value="week">Tygodniowy</option><option value="month">Miesięczny</option><option value="forever">Dożywotni</option></select>
+                    <input type="number" min="1" max="100" value={newCodePercent} onChange={(e) => setNewCodePercent(e.target.value)} placeholder="Procent zniżki" className="rounded-xl bg-black/40 p-3 text-white" />
+                    <input type="number" min="1" step="1" value={newCodeHours} onChange={(e) => setNewCodeHours(e.target.value)} placeholder="Ważność w godzinach (puste = zawsze)" className="rounded-xl bg-black/40 p-3 text-white" />
+                  </div>
+                  <button onClick={createDiscountCode} disabled={busyId === "new-discount"} className="mt-3 rounded-xl bg-green-500 px-5 py-3 font-bold text-black disabled:opacity-50">Utwórz kod</button>
+                  <h4 className="mb-3 mt-6 font-bold">Aktywne kody</h4>
+                  <div className="space-y-2">{discountCodes.filter((c) => c.active && (!c.expires_at || new Date(c.expires_at) > new Date())).map((c) => <div key={c.code} className="flex flex-wrap items-center justify-between gap-3 rounded-xl bg-black/30 p-3"><div><p className="font-black">{c.code} · {c.discount_percent}%</p><p className="text-xs text-gray-300">Pakiet: {c.package_type} · {c.expires_at ? "Wygasa: " + new Date(c.expires_at).toLocaleString("pl-PL") : "Bezterminowy"}</p></div><button onClick={() => disableDiscountCode(c.code)} disabled={busyId === c.code} className="rounded-lg bg-red-600 px-4 py-2 font-bold">Wyłącz</button></div>)}</div>
+                </div>}
+                {(isOwner || userRole === "headadmin") && <div className="mb-6 rounded-xl border border-cyan-400/30 bg-cyan-400/10 p-5">
+                  <h3 className="mb-3 text-lg font-black">Rangi administracji</h3>
+                  <p className="mb-4 text-xs text-gray-300">Owner może nadawać HeadAdminów. HeadAdmin może nadawać i odbierać rangę zwykłego Admina.</p>
+                  <div className="mb-4 flex flex-col gap-2 sm:flex-row"><input type="email" value={adminGrantEmail} onChange={(e) => setAdminGrantEmail(e.target.value)} placeholder="E-mail użytkownika" className="min-w-0 flex-1 rounded-lg border border-white/10 bg-black/30 px-3 py-2 text-sm" /><button disabled={busyId === "grant-admin"} onClick={grantAdminByEmail} className="rounded-lg bg-cyan-600 px-4 py-2 font-bold disabled:opacity-50">Nadaj Admina</button></div><div className="space-y-2">{staffUsers.filter((staff) => staff.role !== "owner" && (userRole === "owner" || staff.role === "admin")).map((staff) => <div key={staff.user_id} className="flex flex-wrap items-center justify-between gap-3 rounded-xl bg-black/30 p-3">
+                    <div><p className="font-bold">{staff.nickname}</p><p className="text-xs text-gray-400">{staff.user_id}</p><p className="text-xs text-cyan-200">Obecna rola: {staff.role}</p></div>
+                    {userRole === "owner" ? <button disabled={busyId === staff.user_id} onClick={() => changeStaffRole(staff.user_id, staff.role === "headadmin" ? "admin" : "headadmin")} className="rounded-lg bg-cyan-600 px-4 py-2 font-bold disabled:opacity-50">{staff.role === "headadmin" ? "Zmień na Admin" : "Nadaj HeadAdmin"}</button> : <button disabled={busyId === staff.user_id} onClick={() => changeStaffRole(staff.user_id, "admin")} className="rounded-lg bg-cyan-600 px-4 py-2 font-bold disabled:opacity-50">Nadaj Admina</button>}
+                  </div>)}</div>
+                </div>}
+                <div className="space-y-3">
+                  {accountUsers.map((u) => (
+                    <article key={u.user_id} className="flex flex-wrap items-center justify-between gap-4 rounded-xl border border-white/10 bg-white/5 p-4">
+                      <div><p className="font-bold">{u.display_name}</p><p className="text-xs text-gray-400">{u.email || u.user_id}</p><p className="mt-1 text-xs text-gray-500">{u.suspended ? `Konto zablokowane · ${u.suspended_at ? new Date(u.suspended_at).toLocaleString("pl-PL") : ""}` : "Konto aktywne"}</p></div>
+                      <div className="flex flex-wrap gap-2">
+                        
+                        {canManageAccounts && <button disabled={busyId === u.user_id} onClick={() => manageUserAccount(u.user_id)} className="rounded-xl bg-red-700 px-4 py-3 font-bold disabled:opacity-50">Usuń konto</button>}
+                        <button disabled={busyId === u.user_id} onClick={() => changeAccountSuspension(u.user_id, !u.suspended)} className={u.suspended ? "rounded-xl bg-green-600 px-4 py-3 font-bold disabled:opacity-50" : "rounded-xl bg-red-600 px-4 py-3 font-bold disabled:opacity-50"}>{u.suspended ? "Odblokuj konto" : "Zablokuj konto"}</button>
+                      </div>
+                    </article>
+                  ))}
+                  {accountUsers.length === 0 && <p className="text-gray-400">Brak kont do wyświetlenia.</p>}
+                </div>
+              </section>
+            )}
+
+            {tab === "access" && (
+              <section className="rounded-2xl border border-white/10 bg-black/40 p-5 md:p-7">
+                <h2 className="mb-2 text-2xl font-bold">Zarządzanie dostępem</h2>
+                <p className="mb-6 text-sm text-gray-400">Możesz odebrać lub przywrócić dostęp użytkownikowi. Konta administratorów i właściciela są chronione.</p>
+                <div className="space-y-3">
+                  {accessUsers.map((u) => (
+                    <article key={u.user_id} className="flex flex-wrap items-center justify-between gap-4 rounded-xl border border-white/10 bg-white/5 p-4">
+                      <div><p className="font-bold">{u.display_name}</p><p className="text-xs text-gray-400">{u.email || u.user_id}</p><p className="mt-1 text-xs text-gray-500">{u.access_type} · {u.revoked ? "Dostęp odebrany" : u.expires_at ? new Date(u.expires_at).toLocaleString("pl-PL") : "Bezterminowy"}</p></div>
+                      <button disabled={busyId === u.user_id} onClick={() => changeAccess(u.user_id, u.revoked ? "restore" : "revoke")} className={u.revoked ? "rounded-xl bg-green-600 px-4 py-3 font-bold disabled:opacity-50" : "rounded-xl bg-red-600 px-4 py-3 font-bold disabled:opacity-50"}>{u.revoked ? "Przywróć dostęp" : "Odbierz dostęp"}</button>
+                    </article>
+                  ))}
+                  {accessUsers.length === 0 && <p className="text-gray-400">Brak użytkowników z aktywnym lub odebranym dostępem.</p>}
+                </div>
+              </section>
+            )}
+
             {tab === "orders" && (
               <>
                 <section className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-8">
@@ -347,6 +619,9 @@ export default function AdminPage() {
                         <div className="flex flex-wrap justify-between gap-3">
                           <div>
                             <h3 className="text-xl font-bold">{ticket.subject}</h3>
+                            <p className="mt-1 text-xs text-cyan-200">Kategoria: {ticket.category || "inne"} · Priorytet: {ticket.priority || "normalny"}</p>
+                            {ticket.related_order && <p className="mt-1 text-xs text-gray-400">Zamówienie: {ticket.related_order}</p>}
+                            {ticket.page_url && <p className="mt-1 break-all text-xs text-gray-500">Strona: {ticket.page_url}</p>}
                             <p className="text-sm text-cyan-300 mt-1">
                               {ticket.user_email || "Brak e-maila"}
                             </p>
@@ -419,6 +694,12 @@ export default function AdminPage() {
                           />
                         </div>
 
+                        <div className="mt-5 grid gap-2 text-sm text-gray-300 sm:grid-cols-2">
+                          <p><span className="font-bold text-cyan-300">Imię:</span> {application.first_name || "—"}</p>
+                          <p><span className="font-bold text-cyan-300">Wiek:</span> {application.applicant_age ?? "—"}</p>
+                          <p><span className="font-bold text-cyan-300">Czy lubi zenciaka:</span> {application.likes_zenciaka ? "Tak" : application.likes_zenciaka === false ? "Nie" : "—"}</p>
+                        </div>
+                        {application.about && <div className="mt-5"><p className="mb-1 font-bold text-cyan-300">O sobie</p><p className="whitespace-pre-wrap text-gray-200">{application.about}</p></div>}
                         <div className="mt-5">
                           <p className="text-cyan-300 font-bold mb-1">Doświadczenie</p>
                           <p className="whitespace-pre-wrap text-gray-200">
@@ -437,22 +718,22 @@ export default function AdminPage() {
                           {new Date(application.created_at).toLocaleString("pl-PL")}
                         </p>
 
-                        <div className="flex flex-wrap gap-3 mt-5">
-                          <button
-                            onClick={() => updateStatus("recruitment_applications", application.id, "accepted")}
-                            disabled={busyId === application.id}
-                            className="rounded-xl bg-green-600 hover:bg-green-500 disabled:opacity-50 px-4 py-3 font-bold"
-                          >
-                            Przyjmij
-                          </button>
-                          <button
-                            onClick={() => updateStatus("recruitment_applications", application.id, "rejected")}
-                            disabled={busyId === application.id}
-                            className="rounded-xl bg-red-600 hover:bg-red-500 disabled:opacity-50 px-4 py-3 font-bold"
-                          >
-                            Odrzuć
-                          </button>
-                        </div>
+                        {canManageAccounts && application.status === "pending" && <div className="mt-5 flex flex-wrap gap-3">
+                          <button onClick={async () => {
+                            if (!supabase || !window.confirm("Zatwierdzić podanie i nadać rolę Admin?")) return;
+                            setBusyId(application.id);
+                            const { error } = await supabase.rpc("review_admin_application", { p_application_id: application.id, p_decision: "accepted" });
+                            setMessage(error ? error.message : "Podanie zaakceptowane. Użytkownik otrzymał rolę Admin.");
+                            await loadApplications(); setBusyId("");
+                          }} disabled={busyId === application.id} className="rounded-xl bg-green-600 px-4 py-3 font-bold disabled:opacity-50">Zatwierdź podanie</button>
+                          <button onClick={async () => {
+                            if (!supabase || !window.confirm("Odrzucić podanie?")) return;
+                            setBusyId(application.id);
+                            const { error } = await supabase.rpc("review_admin_application", { p_application_id: application.id, p_decision: "rejected" });
+                            setMessage(error ? error.message : "Podanie odrzucone.");
+                            await loadApplications(); setBusyId("");
+                          }} disabled={busyId === application.id} className="rounded-xl bg-red-600 px-4 py-3 font-bold disabled:opacity-50">Odrzuć</button>
+                        </div>}
                       </article>
                     ))}
                   </div>

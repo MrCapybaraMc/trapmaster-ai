@@ -2,6 +2,8 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
+import { usePathname, useRouter } from "next/navigation";
+import Link from "next/link";
 import { createClient } from "../lib/supabase/client";
 
 type Package = {
@@ -13,25 +15,32 @@ type Package = {
   popular?: boolean;
 };
 
-type UserRole = "user" | "admin" | "owner";
+type UserRole = "user" | "admin" | "headadmin" | "owner";
 type Language = "pl" | "en";
 type Tab =
   | "forum"
+  | "updates"
+  | "announcements"
   | "trappers"
   | "help"
   | "recruitment"
   | "creators"
-  | "settings"
+  | "daily"
   | "support-admin"
   | "recruitment-admin";
+
+type UserProfile = { nickname: string; avatar_url: string | null; points: number; daily_streak: number; last_daily_claim: string | null; };
 
 type ForumPost = {
   id: string;
   user_id: string;
   author_name: string;
+  author_avatar_url?: string | null;
   content: string;
   created_at: string;
 };
+
+type SiteAnnouncement = { id: string; title: string; content: string; created_by: string; created_at: string; };
 
 type Trapmaster = {
   display_name: string;
@@ -44,6 +53,10 @@ type SupportTicket = {
   user_id: string;
   subject: string;
   message: string;
+  category?: string;
+  priority?: string;
+  related_order?: string | null;
+  page_url?: string | null;
   status: string;
   created_at: string;
 };
@@ -54,6 +67,10 @@ type RecruitmentApplication = {
   minecraft_nick: string;
   experience: string;
   motivation: string;
+  likes_zenciaka?: boolean;
+  applicant_age?: number | null;
+  first_name?: string | null;
+  about?: string | null;
   status: string;
   created_at: string;
 };
@@ -162,7 +179,6 @@ const translations = {
     serverDollars: "dolarów serwerowych",
     paymentTitle: "TWÓJ WYBRANY PLAN",
     minecraftNick: "Nick Minecraft",
-    discountCode: "Kod rabatowy (opcjonalnie)",
     priceToPay: "Cena do zapłaty",
     paymentCommand: "Komenda płatności:",
     copy: "KOPIUJ KOMENDĘ",
@@ -200,6 +216,7 @@ const translations = {
     trappers: "TrapMasterzy",
     recruitment: "Rekrutacja",
     creators: "Trap Creators",
+    daily: "Daily",
     settings: "Ustawienia",
     supportAdmin: "Zgłoszenia",
     recruitmentAdmin: "Zgłoszenia rekrutacyjne",
@@ -226,7 +243,7 @@ const translations = {
     nick: "Twój nick Minecraft",
     sendApplication: "WYŚLIJ ZGŁOSZENIE",
     creatorsTitle: "TRAP CREATORS",
-    creatorsFuture: "In future",
+    creatorsFuture: "Wkrótce",
     founder: "Założyciel strony",
     settingsTitle: "USTAWIENIA STRONY",
     language: "Język strony",
@@ -240,12 +257,12 @@ const translations = {
     status: "Status",
     date: "Data",
     actions: "Akcje",
-    noTickets: "Brak zgĹ‚oszeĹ„.",
-    noApplications: "Brak zgĹ‚oszeĹ„ rekrutacyjnych.",
+    noTickets: "Brak zgłoszeń.",
+    noApplications: "Brak zgłoszeń rekrutacyjnych.",
     open: "Otwarte",
     progress: "W trakcie",
     closed: "Zamknięte",
-    pending: "OczekujÄ…ce",
+    pending: "Oczekujące",
     accepted: "Zaakceptowane",
     rejected: "Odrzucone",
     paused: "Strona tymczasowo nieczynna",
@@ -291,7 +308,6 @@ const translations = {
     serverDollars: "server dollars",
     paymentTitle: "YOUR SELECTED PLAN",
     minecraftNick: "Minecraft nickname",
-    discountCode: "Discount code (optional)",
     priceToPay: "Total price",
     paymentCommand: "Payment command:",
     copy: "COPY COMMAND",
@@ -304,7 +320,7 @@ const translations = {
     processing: "Order processing time",
     processingText:
       "Orders are processed within 24 hours on weekdays and 36 hours on days off.",
-    sendOrder: "I PAID â€” SUBMIT ORDER",
+    sendOrder: "I PAID — SUBMIT ORDER",
     sending: "SENDING...",
     back: "Back to offer",
     loginRequired: "You must log in to submit an order.",
@@ -329,6 +345,7 @@ const translations = {
     trappers: "TrapMasters",
     recruitment: "Recruitment",
     creators: "Trap Creators",
+    daily: "Daily rewards",
     settings: "Settings",
     supportAdmin: "Support submissions",
     recruitmentAdmin: "Zgłoszenia rekrutacyjne",
@@ -355,7 +372,7 @@ const translations = {
     nick: "Your Minecraft nickname",
     sendApplication: "SEND APPLICATION",
     creatorsTitle: "TRAP CREATORS",
-    creatorsFuture: "In future",
+    creatorsFuture: "Coming soon",
     founder: "Website founder",
     settingsTitle: "WEBSITE SETTINGS",
     language: "Website language",
@@ -411,12 +428,23 @@ function formatDate(value: string | null, lang: Language) {
 }
 
 export default function Home() {
-  const [supabase] = useState(() => createClient());
+  const pathname = usePathname();
+  const router = useRouter();
+  // Avoid creating the browser Supabase client during Next.js server prerendering.
+  const [supabase] = useState<ReturnType<typeof createClient>>(() => {
+    if (typeof window === "undefined") {
+      return null as unknown as ReturnType<typeof createClient>;
+    }
+    return createClient();
+  });
   const videoRef = useRef<HTMLVideoElement | null>(null);
 
   const [selected, setSelected] = useState<Package | null>(null);
   const [loggedIn, setLoggedIn] = useState(false);
   const [userId, setUserId] = useState("");
+  const [profile, setProfile] = useState<UserProfile | null>(null);
+  const [dailyMessage, setDailyMessage] = useState("");
+  const [dailyBusy, setDailyBusy] = useState(false);
   const [userRole, setUserRole] = useState<UserRole>("user");
   const [hasTrapperAccess, setHasTrapperAccess] = useState(false);
   const [authLoading, setAuthLoading] = useState(true);
@@ -425,13 +453,22 @@ export default function Home() {
 
   const [musicEnabled, setMusicEnabled] = useState(false);
   const [language, setLanguage] = useState<Language>("pl");
-  const [activeTab, setActiveTab] = useState<Tab>("forum");
+  const [selectedTab, setSelectedTab] = useState<Tab>("forum");
+  const activeTab: Tab =
+    pathname === "/aktualizacje"
+      ? "updates"
+      : pathname === "/ogloszenia"
+        ? "announcements"
+        : selectedTab;
+  const setActiveTab = setSelectedTab;
 
   const [minecraftNick, setMinecraftNick] = useState("");
-  const [discountCode, setDiscountCode] = useState("");
   const [copied, setCopied] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [orderMessage, setOrderMessage] = useState("");
+  const [discountCode, setDiscountCode] = useState("");
+  const [couponDiscount, setCouponDiscount] = useState(0);
+  const [couponMessage, setCouponMessage] = useState("");
   const [orderSuccess, setOrderSuccess] = useState(false);
 
   const [forumPosts, setForumPosts] = useState<ForumPost[]>([]);
@@ -439,11 +476,20 @@ export default function Home() {
   const [forumLoading, setForumLoading] = useState(false);
   const [forumSending, setForumSending] = useState(false);
   const [forumMessage, setForumMessage] = useState("");
+  const [announcements, setAnnouncements] = useState<SiteAnnouncement[]>([]);
+  const [announcementTitle, setAnnouncementTitle] = useState("");
+  const [announcementContent, setAnnouncementContent] = useState("");
+  const [announcementsLoading, setAnnouncementsLoading] = useState(false);
+  const [announcementSending, setAnnouncementSending] = useState(false);
+  const [announcementMessage, setAnnouncementMessage] = useState("");
 
   const [trappers, setTrappers] = useState<Trapmaster[]>([]);
   const [trappersLoading, setTrappersLoading] = useState(false);
 
   const [ticketSubject, setTicketSubject] = useState("");
+  const [ticketCategory, setTicketCategory] = useState("other");
+  const [ticketPriority, setTicketPriority] = useState("normal");
+  const [ticketOrder, setTicketOrder] = useState("");
   const [ticketContent, setTicketContent] = useState("");
   const [ticketSending, setTicketSending] = useState(false);
   const [ticketMessage, setTicketMessage] = useState("");
@@ -451,6 +497,10 @@ export default function Home() {
   const [applicationNick, setApplicationNick] = useState("");
   const [applicationExperience, setApplicationExperience] = useState("");
   const [applicationMotivation, setApplicationMotivation] = useState("");
+  const [likesZenciaka, setLikesZenciaka] = useState<boolean | null>(null);
+  const [applicantAge, setApplicantAge] = useState("");
+  const [applicantFirstName, setApplicantFirstName] = useState("");
+  const [applicantAbout, setApplicantAbout] = useState("");
   const [applicationSending, setApplicationSending] = useState(false);
   const [applicationMessage, setApplicationMessage] = useState("");
 
@@ -460,18 +510,37 @@ export default function Home() {
   const [adminMessage, setAdminMessage] = useState("");
 
   const t = translations[language];
-  const isAdmin = userRole === "admin" || userRole === "owner";
+  const isAdmin = userRole === "admin" || userRole === "headadmin" || userRole === "owner";
+
+  const loadProfile = useCallback(async (id: string) => {
+    if (!id) { setProfile(null); return; }
+    const { data } = await supabase.from("profiles").select("nickname,avatar_url,points,daily_streak,last_daily_claim").eq("user_id", id).maybeSingle();
+    setProfile(data as UserProfile | null);
+  }, [supabase]);
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    let visitId = sessionStorage.getItem("trapmasters_visit_id");
+    if (!visitId) {
+      visitId = crypto.randomUUID();
+      sessionStorage.setItem("trapmasters_visit_id", visitId);
+    }
+    supabase.rpc("track_site_visit", {
+      p_session_id: visitId,
+      p_route: window.location.pathname,
+    });
+  }, [supabase]);
 
   // Ustawienia jÄ™zyka i dĹşwiÄ™ku.
   useEffect(() => {
     const savedMusic = localStorage.getItem(MUSIC_KEY);
     const savedLanguage = localStorage.getItem(LANGUAGE_KEY);
-
-    setMusicEnabled(savedMusic === "true");
-
-    if (savedLanguage === "pl" || savedLanguage === "en") {
-      setLanguage(savedLanguage);
-    }
+    const frame = window.requestAnimationFrame(() => {
+      setMusicEnabled(savedMusic === "true");
+      if (savedLanguage === "pl" || savedLanguage === "en") {
+        setLanguage(savedLanguage);
+      }
+    });
 
     function handleMusicChange(event: Event) {
       const customEvent = event as CustomEvent<boolean>;
@@ -487,6 +556,7 @@ export default function Home() {
     window.addEventListener("trapmasters-language-change", handleLanguageChange);
 
     return () => {
+      window.cancelAnimationFrame(frame);
       window.removeEventListener("trapmasters-music-change", handleMusicChange);
       window.removeEventListener("trapmasters-language-change", handleLanguageChange);
     };
@@ -524,28 +594,26 @@ export default function Home() {
         return;
       }
 
-      const { data, error } = await supabase
-        .from("admin_users")
-        .select("role")
-        .eq("user_id", id)
-        .maybeSingle();
+      // Use the server-side role helpers so frontend role visibility does not
+      // depend on direct SELECT access to the protected admin_users table.
+      const { data: ownerResult, error: ownerError } = await supabase.rpc("is_owner");
+      const { data: adminResult, error: adminError } = await supabase.rpc("is_admin");
 
       let role: UserRole = "user";
-
-      if (!error && data?.role === "owner") role = "owner";
-      else if (!error && data?.role === "admin") role = "admin";
+      if (!ownerError && ownerResult === true) role = "owner";
+      else if (!adminError && adminResult === true) role = "admin";
 
       setUserRole(role);
 
-      if (role === "owner" || role === "admin") {
+      if (role === "owner") {
         setHasTrapperAccess(true);
         return;
       }
 
+      // Admins manage the website but do not receive TrapMaster access.
       const { data: access, error: accessError } = await supabase.rpc(
         "has_trapmaster_access"
       );
-
       setHasTrapperAccess(!accessError && access === true);
     },
     [supabase]
@@ -562,6 +630,7 @@ export default function Home() {
 
       setLoggedIn(!!user);
       setUserId(user?.id ?? "");
+      await loadProfile(user?.id ?? "");
       setAuthLoading(false);
 
       await loadRole(user?.id);
@@ -594,6 +663,7 @@ export default function Home() {
 
       setLoggedIn(!!session);
       setUserId(session?.user.id ?? "");
+      await loadProfile(session?.user.id ?? "");
       await loadRole(session?.user.id);
       setAuthLoading(false);
     });
@@ -602,7 +672,7 @@ export default function Home() {
       mounted = false;
       subscription.unsubscribe();
     };
-  }, [supabase, loadRole]);
+  }, [supabase, loadRole, loadProfile]);
 
   // Synchronizacja dĹşwiÄ™ku z filmem.
   useEffect(() => {
@@ -620,7 +690,7 @@ export default function Home() {
 
     const { data, error } = await supabase
       .from("forum_posts")
-      .select("id,user_id,author_name,content,created_at")
+      .select("id,user_id,author_name,author_avatar_url,content,created_at")
       .order("created_at", { ascending: false })
       .limit(100);
 
@@ -633,7 +703,28 @@ export default function Home() {
     setForumLoading(false);
   }, [supabase]);
 
+  const deleteForumPost = useCallback(async (postId: string) => {
+    if (!isAdmin || !window.confirm("Czy na pewno usunąć ten post?")) return;
+    const { error } = await supabase.from("forum_posts").delete().eq("id", postId);
+    if (error) {
+      setForumMessage("Nie udało się usunąć posta: " + error.message);
+      return;
+    }
+    setForumPosts((current) => current.filter((post) => post.id !== postId));
+    setForumMessage("Post został usunięty.");
+  }, [isAdmin, supabase]);
+
   // Ĺadowanie aktywnych TrapMasterĂłw.
+  const loadAnnouncements = useCallback(async () => {
+    setAnnouncementsLoading(true);
+    const { data, error } = await supabase.from("site_announcements")
+      .select("id,title,content,created_by,created_at")
+      .order("created_at", { ascending: false }).limit(100);
+    if (error) setAnnouncementMessage(error.message);
+    else setAnnouncements((data ?? []) as SiteAnnouncement[]);
+    setAnnouncementsLoading(false);
+  }, [supabase]);
+
   const loadTrappers = useCallback(async () => {
     setTrappersLoading(true);
 
@@ -655,13 +746,13 @@ export default function Home() {
     const [ticketResult, applicationResult] = await Promise.all([
       supabase
         .from("support_tickets")
-        .select("id,user_id,subject,message,status,created_at")
+        .select("id,user_id,subject,message,category,priority,related_order,page_url,status,created_at")
         .order("created_at", { ascending: false })
         .limit(100),
 
       supabase
         .from("recruitment_applications")
-        .select("id,user_id,minecraft_nick,experience,motivation,status,created_at")
+        .select("id,user_id,minecraft_nick,experience,motivation,likes_zenciaka,applicant_age,first_name,about,status,created_at")
         .order("created_at", { ascending: false })
         .limit(100),
     ]);
@@ -684,18 +775,23 @@ export default function Home() {
   }, [supabase, isAdmin]);
 
   useEffect(() => {
-    if (activeTab === "forum") loadForum();
-    if (activeTab === "trappers") loadTrappers();
-    if (
-      (activeTab === "support-admin" || activeTab === "recruitment-admin") &&
-      isAdmin
-    ) {
-      loadAdminSubmissions();
-    }
+    const frame = window.requestAnimationFrame(() => {
+      if (activeTab === "forum") void loadForum();
+      if (activeTab === "announcements") void loadAnnouncements();
+      if (activeTab === "trappers") void loadTrappers();
+      if (
+        (activeTab === "support-admin" || activeTab === "recruitment-admin") &&
+        isAdmin
+      ) {
+        void loadAdminSubmissions();
+      }
+    });
+    return () => window.cancelAnimationFrame(frame);
   }, [
     activeTab,
     isAdmin,
     loadForum,
+    loadAnnouncements,
     loadTrappers,
     loadAdminSubmissions,
   ]);
@@ -732,6 +828,33 @@ export default function Home() {
   }
 
   // WysĹ‚anie zgĹ‚oszenia do administracji.
+  async function submitAnnouncement() {
+    if (!isAdmin || !loggedIn) return;
+    if (announcementTitle.trim().length < 3 || announcementContent.trim().length < 5) {
+      setAnnouncementMessage("Tytuł musi mieć min. 3 znaki, a treść min. 5 znaków.");
+      return;
+    }
+    setAnnouncementSending(true);
+    setAnnouncementMessage("");
+    const { error } = await supabase.from("site_announcements").insert({
+      title: announcementTitle.trim(), content: announcementContent.trim(), created_by: userId,
+    });
+    setAnnouncementSending(false);
+    if (error) { setAnnouncementMessage(error.message); return; }
+    setAnnouncementTitle(""); setAnnouncementContent("");
+    setAnnouncementMessage("Ogłoszenie zostało opublikowane.");
+    await loadAnnouncements();
+  }
+
+  async function deleteAnnouncement(id: string) {
+    if (!isAdmin) return;
+    if (!window.confirm("Usunąć to ogłoszenie?")) return;
+    const { error } = await supabase.from("site_announcements").delete().eq("id", id);
+    if (error) { setAnnouncementMessage(error.message); return; }
+    setAnnouncementMessage("Ogłoszenie usunięto.");
+    await loadAnnouncements();
+  }
+
   async function submitTicket() {
     if (!loggedIn) {
       setTicketMessage(t.loginFirst);
@@ -749,6 +872,10 @@ export default function Home() {
     const { error } = await supabase.from("support_tickets").insert({
       user_id: userId,
       subject: ticketSubject.trim(),
+      category: ticketCategory,
+      priority: ticketPriority,
+      related_order: ticketOrder.trim() || null,
+      page_url: typeof window !== "undefined" ? window.location.href : null,
       message: ticketContent.trim(),
     });
 
@@ -760,6 +887,9 @@ export default function Home() {
     }
 
     setTicketSubject("");
+    setTicketCategory("other");
+    setTicketPriority("normal");
+    setTicketOrder("");
     setTicketContent("");
     setTicketMessage(t.success);
   }
@@ -774,7 +904,12 @@ export default function Home() {
     if (
       applicationNick.trim().length < 1 ||
       applicationExperience.trim().length < 10 ||
-      applicationMotivation.trim().length < 10
+      applicationMotivation.trim().length < 10 ||
+      likesZenciaka === null ||
+      applicantFirstName.trim().length < 1 ||
+      !/^[0-9]{1,2}$/.test(applicantAge) ||
+      Number(applicantAge) < 13 || Number(applicantAge) > 99 ||
+      applicantAbout.trim().split(/[.!?]+/).filter((sentence) => sentence.trim().length > 0).length < 5
     ) {
       setApplicationMessage(t.fillFields);
       return;
@@ -790,6 +925,10 @@ export default function Home() {
         minecraft_nick: applicationNick.trim(),
         experience: applicationExperience.trim(),
         motivation: applicationMotivation.trim(),
+        likes_zenciaka: likesZenciaka,
+        applicant_age: Number(applicantAge),
+        first_name: applicantFirstName.trim(),
+        about: applicantAbout.trim(),
       });
 
     setApplicationSending(false);
@@ -802,6 +941,10 @@ export default function Home() {
     setApplicationNick("");
     setApplicationExperience("");
     setApplicationMotivation("");
+    setLikesZenciaka(null);
+    setApplicantAge("");
+    setApplicantFirstName("");
+    setApplicantAbout("");
     setApplicationMessage(t.success);
   }
 
@@ -841,12 +984,9 @@ export default function Home() {
   }
 
   // Zamówienia.
-  const discount =
-    discountCode.trim().toLowerCase() === "trapstarter"
-      ? selected?.id === "forever"
-        ? 25
-        : 15
-      : 0;
+  const discount = userRole === "admin" || userRole === "headadmin" || userRole === "owner"
+    ? selected?.id === "forever" ? 20 : 30
+    : couponDiscount;
 
   const finalPrice = selected
     ? Number((selected.price * (100 - discount) / 100).toFixed(2))
@@ -859,10 +999,10 @@ export default function Home() {
   function choosePackage(pkg: Package) {
     setSelected(pkg);
     setMinecraftNick("");
-    setDiscountCode("");
     setCopied(false);
     setOrderMessage("");
     setOrderSuccess(false);
+    setDiscountCode(""); setCouponDiscount(0); setCouponMessage("");
 
     setTimeout(() => {
       document.getElementById("payment")?.scrollIntoView({
@@ -871,6 +1011,13 @@ export default function Home() {
     }, 100);
   }
 
+  async function applyDiscountCode() {
+    if (!selected || !loggedIn || !discountCode.trim()) { setCouponMessage("Wpisz kod rabatowy."); return; }
+    const { data, error } = await supabase.rpc("get_discount_code_discount", { p_code: discountCode.trim(), p_package_type: selected.id });
+    if (error) { setCouponDiscount(0); setCouponMessage(error.message); return; }
+    if (!data) { setCouponDiscount(0); setCouponMessage("Kod jest nieprawidłowy, wygasł lub nie działa na ten pakiet."); return; }
+    setCouponDiscount(Number(data)); setCouponMessage("Kod aktywny: zniżka " + data + "%.");
+  }
   async function copyCommand() {
     try {
       await navigator.clipboard.writeText(paymentCommand);
@@ -878,7 +1025,7 @@ export default function Home() {
     } catch {
       setOrderMessage(
         language === "pl"
-          ? "Nie udaĹ‚o siÄ™ skopiowaÄ‡ komendy. Skopiuj jÄ… rÄ™cznie."
+          ? "Nie udało się skopiować komendy. Skopiuj ją ręcznie."
           : "Could not copy the command. Please copy it manually."
       );
     }
@@ -918,12 +1065,57 @@ export default function Home() {
     setOrderSuccess(true);
     setOrderMessage(
       language === "pl"
-        ? `ZamĂłwienie zostaĹ‚o wysĹ‚ane! Numer: ${result.order_id}`
+        ? `Zamówienie zostało wysłane! Numer: ${result.order_id}`
         : `Order submitted! Order number: ${result.order_id}`
     );
   }
 
+  async function claimDailyReward() {
+    if (!loggedIn) { setDailyMessage("Zaloguj się, aby odbierać punkty Daily."); return; }
+    setDailyBusy(true); setDailyMessage("");
+    const { data, error } = await supabase.rpc("claim_daily_reward");
+    if (error) setDailyMessage(error.message);
+    else { const result = Array.isArray(data) ? data[0] : data; setDailyMessage(`Odebrano ${result.points_awarded} punktów! Seria: ${result.streak_days} dni.`); await loadProfile(userId); }
+    setDailyBusy(false);
+  }
+
+  async function redeemDailyAccess() {
+    if (!loggedIn) { setDailyMessage("Zaloguj się, aby wymienić punkty."); return; }
+    if (!window.confirm("Wymienić 2150 punktów na 24 godziny dostępu TrapMaster?")) return;
+    setDailyBusy(true); setDailyMessage("");
+    const { data, error } = await supabase.rpc("redeem_daily_access");
+    if (error) setDailyMessage(error.message);
+    else { setDailyMessage(`Wymieniono punkty! Dostęp do ${new Date(data.expires_at).toLocaleString("pl-PL")}.`); await loadProfile(userId); }
+    setDailyBusy(false);
+  }
+
+  async function redeemPointsShop(itemId: string) {
+    const labels: Record<string, string> = { access_24h: "24 godziny", access_7d: "7 dni", access_30d: "30 dni" };
+    if (!window.confirm("Wymienić punkty na dostęp TrapMaster: " + (labels[itemId] || itemId) + "?")) return;
+    setDailyBusy(true); setDailyMessage("");
+    const { data, error } = await supabase.rpc("redeem_points_shop", { p_item_id: itemId });
+    if (error) setDailyMessage(error.message);
+    else {
+      setDailyMessage("Zakupiono " + data.title + ". Dostęp do: " + new Date(data.expires_at).toLocaleString("pl-PL"));
+      await loadProfile(userId);
+    }
+    setDailyBusy(false);
+  }
+
   function openTab(tab: Tab) {
+    if (tab === "forum") {
+      router.push("/forum");
+      return;
+    }
+    if (tab === "updates") {
+      router.push("/aktualizacje");
+      return;
+    }
+    if (tab === "announcements") {
+      router.push("/ogloszenia");
+      return;
+    }
+    if (pathname !== "/") router.push("/");
     setActiveTab(tab);
 
     setTimeout(() => {
@@ -935,11 +1127,13 @@ export default function Home() {
 
   const tabItems: { id: Tab; label: string }[] = [
     { id: "forum", label: t.forum },
+    { id: "updates", label: "Aktualizacje" },
+    { id: "announcements", label: "Ogłoszenia" },
     { id: "trappers", label: t.trappers },
     { id: "help", label: t.help },
     { id: "recruitment", label: t.recruitment },
     { id: "creators", label: t.creators },
-    { id: "settings", label: t.settings },
+    { id: "daily", label: t.daily },
   ];
 
   if (isAdmin) {
@@ -1004,9 +1198,9 @@ export default function Home() {
         {/* NAWIGACJA */}
         <header className="border-b border-white/10 bg-black/35 backdrop-blur-md">
           <div className="mx-auto flex max-w-7xl flex-wrap items-center justify-between gap-4 px-6 py-5">
-            <a href="/" className="text-2xl font-black tracking-wider">
+            <Link href="/" className="text-2xl font-black tracking-wider">
               TRAP<span className="text-purple-500">MASTERS</span>
-            </a>
+            </Link>
 
             <nav className="flex flex-wrap items-center gap-4 text-sm text-gray-200">
               <a href="#oferta" className="hover:text-purple-400">
@@ -1021,9 +1215,9 @@ export default function Home() {
               <button onClick={() => openTab("forum")} className="hover:text-purple-400">
                 {t.forum}
               </button>
-              <button onClick={() => openTab("settings")} className="hover:text-purple-400">
-                {t.settings}
-              </button>
+              <button onClick={() => openTab("daily")} className="hover:text-amber-300">{t.daily}</button>
+              <button onClick={() => openTab("updates")} className="hover:text-purple-300">Aktualizacje</button>
+              <button onClick={() => openTab("announcements")} className="hover:text-amber-300">Ogłoszenia</button>
 
               {loggedIn && (
                 <a href="/account" className="font-bold text-purple-300">
@@ -1069,11 +1263,9 @@ export default function Home() {
             {authLoading ? (
               <span className="text-sm text-gray-400">{t.loading}</span>
             ) : loggedIn ? (
-              <a
-                href="/account"
-                className="rounded-xl border border-green-400/40 bg-green-500/15 px-5 py-3 text-sm font-bold text-green-300"
-              >
-                âś“ {t.myAccount}
+              <a href="/account" className="flex items-center gap-3 rounded-xl border border-green-400/40 bg-green-500/15 px-4 py-2.5 text-sm font-bold text-green-300">
+                {profile?.avatar_url ? <img src={profile.avatar_url} alt="" className="h-8 w-8 rounded-full border border-green-300/40 object-cover" /> : <span className="grid h-8 w-8 place-items-center rounded-full bg-green-500/20"><svg viewBox="0 0 24 24" aria-hidden="true" className="h-5 w-5" fill="none" stroke="currentColor" strokeWidth="1.8"><circle cx="12" cy="8" r="3.5"/><path d="M5 20c.7-3.5 3.1-5.3 7-5.3s6.3 1.8 7 5.3"/></svg></span>}
+                <span>{profile?.nickname || t.myAccount}</span>
               </a>
             ) : (
               <a
@@ -1093,7 +1285,7 @@ export default function Home() {
         ) : paused ? (
           <section className="flex min-h-[75vh] flex-col items-center justify-center px-6 text-center">
             <div className="max-w-2xl rounded-3xl border border-red-400/40 bg-black/75 p-10 backdrop-blur-sm">
-              <div className="text-5xl">đź”§</div>
+              <div className="text-5xl">🔧</div>
               <h1 className="mt-6 text-4xl font-black md:text-5xl">{t.paused}</h1>
               <p className="mt-5 leading-7 text-white/75">{t.pausedText}</p>
               <a
@@ -1133,6 +1325,15 @@ export default function Home() {
                 >
                   {t.myAccount}
                 </a>
+                <a href="/forum" className="rounded-xl border border-purple-400/50 bg-purple-950/50 px-8 py-4 font-bold text-purple-200 hover:bg-purple-900/60">
+                  FORUM
+                </a>
+                <a href="/aktualizacje" className="rounded-xl border border-purple-400/50 bg-purple-950/50 px-8 py-4 font-bold text-purple-200 hover:bg-purple-900/60">
+                  AKTUALIZACJE
+                </a>
+                <a href="/ogloszenia" className="rounded-xl border border-amber-400/50 bg-amber-950/40 px-8 py-4 font-bold text-amber-200 hover:bg-amber-900/50">
+                  OGŁOSZENIA
+                </a>
               </div>
             </section>
 
@@ -1166,20 +1367,50 @@ export default function Home() {
                     <p className="mt-3 text-sm text-white/75">{packageTranslations[language][pkg.id].description}</p>
 
                     <div className="my-8">
-                      <span className="text-5xl font-black text-purple-300">
-                        {formatPrice(pkg.price)}
-                      </span>
-                      <p className="mt-2 text-sm text-white/70">{t.serverDollars}</p>
+                      {userRole === "owner" ? (
+                        <div className="rounded-2xl border border-amber-300/40 bg-amber-300/10 p-4">
+                          <p className="text-lg font-black text-amber-200">DARMOWY DOSTĘP OWNERA</p>
+                          <p className="mt-1 text-sm text-amber-100/80">Pełny TrapMaster bez opłat i bez zamawiania pakietu.</p>
+                        </div>
+                      ) : userRole === "admin" ? (
+                        <>
+                          <p className="mb-2 inline-flex rounded-full border border-green-400/40 bg-green-400/10 px-3 py-1 text-xs font-black text-green-200">
+                            ZNIŻKA {pkg.id === "forever" ? "20%" : "30%"} DLA ADMINA
+                          </p>
+                          <div className="flex flex-wrap items-baseline gap-3">
+                            <span className="text-5xl font-black text-purple-300">
+                              {formatPrice(pkg.price * (pkg.id === "forever" ? 0.8 : 0.7))}
+                            </span>
+                            <span className="text-lg text-white/45 line-through">
+                              {formatPrice(pkg.price)}
+                            </span>
+                          </div>
+                        </>
+                      ) : (
+                        <span className="text-5xl font-black text-purple-300">
+                          {formatPrice(pkg.price)}
+                        </span>
+                      )}
+                      {userRole !== "owner" && <p className="mt-2 text-sm text-white/70">{t.serverDollars}</p>}
                     </div>
 
                     <p className="mb-8 text-sm text-white/85">{packageTranslations[language][pkg.id].duration}</p>
 
-                    <button
-                      onClick={() => choosePackage(pkg)}
-                      className="mt-auto w-full rounded-xl bg-purple-600 py-4 font-bold hover:bg-purple-500"
-                    >
-                      {t.choose}
-                    </button>
+                    {userRole === "owner" ? (
+                      <a
+                        href="/trapmaster"
+                        className="mt-auto block w-full rounded-xl bg-amber-400 py-4 text-center font-black text-black hover:bg-amber-300"
+                      >
+                        OTWÓRZ TRAPMASTER
+                      </a>
+                    ) : (
+                      <button
+                        onClick={() => choosePackage(pkg)}
+                        className="mt-auto w-full rounded-xl bg-purple-600 py-4 font-bold hover:bg-purple-500"
+                      >
+                        {t.choose}
+                      </button>
+                    )}
                   </div>
                 ))}
               </div>
@@ -1214,21 +1445,15 @@ export default function Home() {
                     />
                   </div>
 
-                  <div className="mt-5 text-left">
-                    <label className="mb-2 block text-sm text-white/80">
-                      {t.discountCode}
-                    </label>
-                    <input
-                      value={discountCode}
-                      onChange={(e) => {
-                        setDiscountCode(e.target.value);
-                        setCopied(false);
-                      }}
-                      placeholder="trapstarter"
-                      className="w-full rounded-xl border border-white/20 bg-black/50 px-4 py-4 text-white outline-none focus:border-purple-400"
-                    />
-                  </div>
 
+                  {userRole === "user" && <div className="mb-5 rounded-xl border border-white/15 bg-black/40 p-5">
+                    <label className="mb-2 block text-sm text-white/80">Kod rabatowy</label>
+                    <div className="flex flex-wrap gap-2">
+                      <input value={discountCode} onChange={(e) => { setDiscountCode(e.target.value); setCouponDiscount(0); setCouponMessage(""); }} placeholder="Wpisz kod" className="min-w-0 flex-1 rounded-xl bg-black/50 p-3 text-white" />
+                      <button onClick={applyDiscountCode} className="rounded-xl bg-purple-600 px-4 py-3 font-bold">Zastosuj</button>
+                    </div>
+                    {couponMessage && <p className="mt-2 text-sm text-white/80">{couponMessage}</p>}
+                  </div>}
                   <div className="mt-8 rounded-xl border border-white/15 bg-black/40 p-5">
                     <p className="text-white/70">{t.priceToPay}</p>
                     <p className="mt-2 text-4xl font-black text-purple-300">
@@ -1236,7 +1461,7 @@ export default function Home() {
                     </p>
                     {discount > 0 && (
                       <p className="mt-2 text-sm text-green-300">
-                        {t.discount} {discount}% â€” {t.discountApplied}
+                        {language === "pl" ? `Zniżka dla ${userRole === "owner" ? "Ownera" : "administratora"}: ${discount}%` : `${userRole === "owner" ? "Owner" : "Administrator"} discount: ${discount}%`}
                       </p>
                     )}
                     <p className="mt-2 text-sm text-white/60">{t.serverDollars}</p>
@@ -1409,7 +1634,7 @@ export default function Home() {
 
             {/* KARTA ADMINISTRACJI */}
             <div className="rounded-3xl border border-white/20 bg-black/50 p-8 backdrop-blur-md">
-              <div className="mb-5 text-3xl">Informations</div>
+              <div className="mb-5 text-3xl">👥</div>
               <h3 className="text-2xl font-black">{t.adminsTitle}</h3>
               <p className="mt-4 leading-7 text-white/85">{t.adminsText}</p>
             </div>
@@ -1439,7 +1664,7 @@ export default function Home() {
               {tabItems.map((item) => (
                 <button
                   key={item.id}
-                  onClick={() => setActiveTab(item.id)}
+                  onClick={() => openTab(item.id)}
                   className={`rounded-xl border px-5 py-3 text-sm font-bold transition ${
                     activeTab === item.id
                       ? "border-purple-400 bg-purple-600 text-white"
@@ -1500,9 +1725,10 @@ export default function Home() {
                         className="rounded-2xl border border-purple-400/20 bg-[#11111c]/95 p-5"
                       >
                         <div className="flex flex-wrap items-center justify-between gap-3">
-                          <span className="font-bold text-purple-200">
-                            {post.author_name}
-                          </span>
+                          <div className="flex min-w-0 items-center gap-3">
+                            {post.author_avatar_url ? <img src={post.author_avatar_url} alt="" className="h-10 w-10 rounded-full border border-purple-300/30 object-cover" /> : <div className="grid h-10 w-10 place-items-center rounded-full bg-purple-900 text-lg">👤</div>}
+                            <span className="truncate font-bold text-purple-200">{post.author_name}</span>
+                          </div>
                           <span className="text-xs text-white/45">
                             {formatDate(post.created_at, language)}
                           </span>
@@ -1510,6 +1736,11 @@ export default function Home() {
                         <p className="mt-4 whitespace-pre-wrap break-words leading-7 text-white/85">
                           {post.content}
                         </p>
+                        {isAdmin && (
+                          <button onClick={() => deleteForumPost(post.id)} className="mt-4 rounded-lg border border-red-400/30 px-3 py-2 text-xs font-bold text-red-200 hover:bg-red-500/10">
+                            Usuń post
+                          </button>
+                        )}
                       </article>
                     ))
                   )}
@@ -1517,6 +1748,108 @@ export default function Home() {
               </div>
             )}
 
+            {activeTab === "updates" && (
+              <div className="rounded-3xl border border-purple-400/30 bg-black/75 p-6 backdrop-blur-md md:p-10">
+                <p className="text-xs font-black uppercase tracking-[.3em] text-purple-300">DZIENNIK ZMIAN TRAPMASTERS</p>
+                <div className="mt-4 flex flex-wrap items-center justify-between gap-4">
+                  <h3 className="text-3xl font-black">Aktualizacje</h3>
+                  <span className="rounded-full border border-green-400/30 bg-green-500/10 px-4 py-2 text-sm font-black text-green-300">Aktualna wersja: v.beta.09</span>
+                </div>
+                <article className="mt-8 rounded-2xl border border-purple-400/25 bg-[#11111c] p-6">
+                  <h4 className="text-2xl font-black text-purple-200">v.beta.09</h4>
+                  <p className="mt-4 text-sm font-bold uppercase tracking-wider text-white/70">Co się zmieniło?</p>
+                  <ul className="mt-3 list-disc space-y-2 pl-5 leading-7 text-white/80">
+                    <li>Dodano zakładkę „Aktualizacje” z historią wersji i opisem zmian.</li>
+                    <li>Dodano zakładkę „Ogłoszenia” widoczną dla wszystkich odwiedzających.</li>
+                    <li>Administratorzy mogą publikować i usuwać ogłoszenia.</li>
+                    <li>Dodano zabezpieczenia bazy danych, aby zarządzanie ogłoszeniami było dostępne wyłącznie dla administratorów.</li>
+                  </ul>
+                </article>
+              </div>
+            )}
+
+            {activeTab === "announcements" && (
+              <div className="rounded-3xl border border-amber-400/30 bg-black/75 p-6 backdrop-blur-md md:p-10">
+                <p className="text-xs font-black uppercase tracking-[.3em] text-amber-300">TRAPMASTERS • TABLICA INFORMACYJNA</p>
+                <h3 className="mt-3 text-3xl font-black text-amber-100">Ogłoszenia</h3>
+                <p className="mt-2 text-white/65">Najnowsze informacje od administracji TRAPMASTERS.</p>
+                {isAdmin && (
+                  <div className="mt-8 rounded-2xl border border-amber-300/25 bg-[#17130c] p-5">
+                    <h4 className="text-xl font-black text-amber-200">Panel publikowania ogłoszeń</h4>
+                    <label className="mt-5 block text-sm font-bold">Tytuł ogłoszenia
+                      <input value={announcementTitle} onChange={(e) => setAnnouncementTitle(e.target.value)} maxLength={120} placeholder="Wpisz tytuł..." className="mt-2 w-full rounded-xl border border-white/15 bg-black/50 px-4 py-3 outline-none focus:border-amber-300" />
+                    </label>
+                    <label className="mt-4 block text-sm font-bold">Treść ogłoszenia
+                      <textarea value={announcementContent} onChange={(e) => setAnnouncementContent(e.target.value)} maxLength={5000} rows={5} placeholder="Napisz ogłoszenie dla społeczności..." className="mt-2 w-full resize-y rounded-xl border border-white/15 bg-black/50 px-4 py-3 outline-none focus:border-amber-300" />
+                    </label>
+                    <div className="mt-3 flex flex-wrap items-center justify-between gap-3">
+                      <span className="text-xs text-white/45">{announcementContent.length}/5000</span>
+                      <button onClick={submitAnnouncement} disabled={announcementSending} className="rounded-xl bg-amber-500 px-6 py-3 font-black text-black hover:bg-amber-400 disabled:opacity-50">{announcementSending ? "Publikowanie..." : "Opublikuj ogłoszenie"}</button>
+                    </div>
+                    {announcementMessage && <p className="mt-3 text-sm text-amber-200">{announcementMessage}</p>}
+                  </div>
+                )}
+                <div className="mt-8 space-y-4">
+                  {announcementsLoading ? <p className="text-white/60">{t.loading}</p> :
+                   announcements.length === 0 ? <p className="rounded-xl border border-white/10 bg-black/30 p-6 text-center text-white/60">Nie ma jeszcze żadnych ogłoszeń.</p> :
+                   announcements.map((announcement) => (
+                    <article key={announcement.id} className="rounded-2xl border border-amber-300/20 bg-[#11111c] p-5 md:p-6">
+                      <div className="flex flex-wrap items-start justify-between gap-3">
+                        <h4 className="text-xl font-black text-amber-100">{announcement.title}</h4>
+                        <span className="text-xs text-white/45">{formatDate(announcement.created_at, language)}</span>
+                      </div>
+                      <p className="mt-4 whitespace-pre-wrap break-words leading-7 text-white/85">{announcement.content}</p>
+                      {isAdmin && <button onClick={() => deleteAnnouncement(announcement.id)} className="mt-5 rounded-lg border border-red-400/30 px-3 py-2 text-xs font-bold text-red-200 hover:bg-red-500/10">Usuń ogłoszenie</button>}
+                    </article>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {/* DAILY */}
+            {activeTab === "daily" && (
+              <div className="relative isolate overflow-hidden rounded-3xl border border-amber-300/30 bg-[#17120a] p-6 shadow-2xl md:p-10">
+                <video autoPlay muted loop playsInline className="absolute inset-0 -z-20 h-full w-full object-cover opacity-35"><source src="/videos/daily.mp4" type="video/mp4" /></video>
+                <div className="absolute inset-0 -z-10 bg-gradient-to-br from-[#100d08]/90 via-[#16100b]/85 to-purple-950/70" />
+                <div className="relative">
+                  <p className="text-xs font-black uppercase tracking-[.35em] text-amber-300">TRAPMASTERS REWARDS</p>
+                  <h3 className="mt-3 text-4xl font-black md:text-5xl">DAILY <span className="text-amber-300">REWARDS</span></h3>
+                  <p className="mt-3 max-w-2xl text-white/75">Odbieraj punkty każdego dnia, buduj serię logowań i wymieniaj punkty na czasowy dostęp do TrapMastera.</p>
+                  {loggedIn ? <>
+                    <div className="mt-8 grid gap-4 sm:grid-cols-3">
+                      <div className="rounded-2xl border border-amber-300/20 bg-black/45 p-5"><p className="text-sm text-white/55">Twoje punkty</p><p className="mt-2 text-4xl font-black text-amber-200">{profile?.points ?? 0}</p></div>
+                      <div className="rounded-2xl border border-amber-300/20 bg-black/45 p-5"><p className="text-sm text-white/55">Seria logowań</p><p className="mt-2 text-4xl font-black">{profile?.daily_streak ?? 0} <span className="text-base font-semibold text-white/60">dni</span></p></div>
+                      <div className="rounded-2xl border border-amber-300/20 bg-black/45 p-5"><p className="text-sm text-white/55">Dzisiejsza nagroda</p><p className="mt-2 text-4xl font-black text-amber-200">{(profile?.daily_streak ?? 0) >= 13 ? 150 : (profile?.daily_streak ?? 0) >= 4 ? 100 : 50} <span className="text-base font-semibold text-white/60">pkt</span></p></div>
+                    </div>
+                    <div className="mt-7 flex flex-wrap gap-3">
+                      <button onClick={claimDailyReward} disabled={dailyBusy || profile?.last_daily_claim === new Date().toISOString().slice(0,10)} className="rounded-xl bg-amber-300 px-7 py-4 font-black text-black transition hover:bg-amber-200 disabled:cursor-not-allowed disabled:opacity-40">{profile?.last_daily_claim === new Date().toISOString().slice(0,10) ? "NAGRODA ODEBRANA DZISIAJ" : dailyBusy ? "CHWILA..." : "ODBIERZ DZIENNĄ NAGRODĘ"}</button>
+                      <a href="/account" className="rounded-xl border border-white/15 bg-white/5 px-6 py-4 font-bold text-white/80 hover:bg-white/10">Moje konto</a>
+                    </div>
+                  </> : <div className="mt-8 rounded-2xl border border-white/10 bg-black/40 p-6"><p className="text-white/80">Zaloguj się, aby zbierać punkty i odbierać nagrody.</p><a href="/register" className="mt-4 inline-block rounded-xl bg-amber-300 px-6 py-3 font-black text-black">ZALOGUJ SIĘ</a></div>}
+                  {loggedIn && (
+                    <section className="mt-9 rounded-2xl border border-purple-300/20 bg-black/40 p-5 md:p-7">
+                      <div className="flex flex-wrap items-end justify-between gap-3"><div><p className="text-xs font-black uppercase tracking-[.25em] text-purple-300">PUNKTY</p><h4 className="mt-2 text-2xl font-black">SKLEP NAGRÓD</h4><p className="mt-1 text-sm text-white/55">Wymieniaj punkty na dodatkowy czas dostępu.</p></div><span className="font-bold text-amber-200">{profile?.points ?? 0} pkt</span></div>
+                      <div className="mt-5 grid gap-3 md:grid-cols-3">
+                        {[{id:"access_24h",name:"TrapMaster 24 godziny",cost:2150,detail:"1 dzień dostępu"},{id:"access_7d",name:"TrapMaster 7 dni",cost:12000,detail:"Tydzień dostępu"},{id:"access_30d",name:"TrapMaster 30 dni",cost:40000,detail:"Miesiąc dostępu"}].map((item) => (
+                          <article key={item.id} className="rounded-xl border border-white/10 bg-white/5 p-4">
+                            <h5 className="font-bold">{item.name}</h5><p className="mt-1 text-sm text-white/50">{item.detail}</p>
+                            <p className="mt-4 text-xl font-black text-amber-200">{item.cost.toLocaleString("pl-PL")} pkt</p>
+                            <button onClick={() => redeemPointsShop(item.id)} disabled={dailyBusy || (profile?.points ?? 0) < item.cost} className="mt-3 w-full rounded-lg bg-purple-600 px-4 py-3 font-bold disabled:opacity-40">Wymień punkty</button>
+                          </article>
+                        ))}
+                      </div>
+                    </section>
+                  )}
+                  <div className="mt-7 grid gap-3 text-sm text-white/70 sm:grid-cols-3">
+                    <div className="rounded-xl bg-black/30 p-4">Dni 1–4 <strong className="block text-xl text-amber-200">50 pkt / dzień</strong></div>
+                    <div className="rounded-xl bg-black/30 p-4">Dni 5–13 <strong className="block text-xl text-amber-200">100 pkt / dzień</strong></div>
+                    <div className="rounded-xl bg-black/30 p-4">Od dnia 14 <strong className="block text-xl text-amber-200">150 pkt / dzień</strong></div>
+                  </div>
+                  {dailyMessage && <p className="mt-5 rounded-xl border border-white/10 bg-black/40 p-4 text-sm text-white/90">{dailyMessage}</p>}
+                  <p className="mt-4 text-xs text-white/40">2150 punktów = 24 godziny dostępu. Przy codziennym odbieraniu nagród można uzbierać tę kwotę w 20 dni.</p>
+                </div>
+              </div>
+            )}
             {/* TRAPMASTERZY */}
             {activeTab === "trappers" && (
               <div className="rounded-3xl border border-purple-400/30 bg-black/70 p-6 backdrop-blur-md md:p-10">
@@ -1543,9 +1876,7 @@ export default function Home() {
                         className="rounded-2xl border border-purple-400/25 bg-[#11111c] p-6"
                       >
                         <div className="flex items-center gap-4">
-                          <div className="flex h-14 w-14 items-center justify-center rounded-xl bg-purple-950 text-3xl">
-                            â›Źď¸Ź
-                          </div>
+                          <div className="flex h-14 w-14 items-center justify-center rounded-xl bg-purple-950 text-3xl">🧑‍💻</div>
                           <div className="min-w-0">
                             <h4 className="truncate font-black text-purple-200">
                               {trapper.display_name}
@@ -1604,6 +1935,21 @@ export default function Home() {
                       />
                     </label>
 
+                    <div className="grid gap-4 sm:grid-cols-2">
+                      <label className="block text-sm font-bold">Kategoria zgłoszenia
+                        <select value={ticketCategory} onChange={(e) => setTicketCategory(e.target.value)} className="mt-2 w-full rounded-xl border border-white/20 bg-black/70 px-4 py-4 font-normal text-white">
+                          <option value="account">Konto / profil</option><option value="payment">Płatność / zamówienie</option><option value="access">Dostęp TrapMaster</option><option value="bug">Błąd strony</option><option value="other">Inne</option>
+                        </select>
+                      </label>
+                      <label className="block text-sm font-bold">Priorytet
+                        <select value={ticketPriority} onChange={(e) => setTicketPriority(e.target.value)} className="mt-2 w-full rounded-xl border border-white/20 bg-black/70 px-4 py-4 font-normal text-white">
+                          <option value="low">Niski</option><option value="normal">Normalny</option><option value="high">Wysoki</option>
+                        </select>
+                      </label>
+                    </div>
+                    <label className="block text-sm font-bold">Numer zamówienia (opcjonalnie)
+                      <input value={ticketOrder} onChange={(e) => setTicketOrder(e.target.value)} maxLength={80} placeholder="Wklej numer zamówienia, jeśli dotyczy" className="mt-2 w-full rounded-xl border border-white/20 bg-black/70 px-4 py-4 font-normal outline-none focus:border-purple-400" />
+                    </label>
                     <label className="block text-sm font-bold">
                       {t.message}
                       <textarea
@@ -1662,39 +2008,34 @@ export default function Home() {
 
                   <div className="mt-8 space-y-5">
                     <label className="block text-sm font-bold">
+                      Czy lubisz zenciaka?
+                      <select required value={likesZenciaka === null ? "" : likesZenciaka ? "yes" : "no"} onChange={(e) => setLikesZenciaka(e.target.value === "" ? null : e.target.value === "yes")} className="mt-2 w-full rounded-xl border border-white/20 bg-black/70 px-4 py-4 font-normal">
+                        <option value="" disabled>Wybierz odpowiedź</option><option value="yes">Tak</option><option value="no">Nie</option>
+                      </select>
+                    </label>
+                    <label className="block text-sm font-bold">
+                      Ile masz lat?
+                      <input type="number" min={13} max={99} value={applicantAge} onChange={(e) => setApplicantAge(e.target.value)} className="mt-2 w-full rounded-xl border border-white/20 bg-black/70 px-4 py-4 font-normal" />
+                    </label>
+                    <label className="block text-sm font-bold">
+                      Jak masz na imię?
+                      <input value={applicantFirstName} onChange={(e) => setApplicantFirstName(e.target.value)} maxLength={60} className="mt-2 w-full rounded-xl border border-white/20 bg-black/70 px-4 py-4 font-normal" />
+                    </label>
+                    <label className="block text-sm font-bold">
                       {t.nick}
-                      <input
-                        value={applicationNick}
-                        onChange={(e) => setApplicationNick(e.target.value)}
-                        maxLength={32}
-                        className="mt-2 w-full rounded-xl border border-white/20 bg-black/70 px-4 py-4 font-normal outline-none focus:border-purple-400"
-                      />
+                      <input value={applicationNick} onChange={(e) => setApplicationNick(e.target.value)} maxLength={32} className="mt-2 w-full rounded-xl border border-white/20 bg-black/70 px-4 py-4 font-normal outline-none focus:border-purple-400" />
                     </label>
-
                     <label className="block text-sm font-bold">
-                      {t.experience}
-                      <textarea
-                        value={applicationExperience}
-                        onChange={(e) => setApplicationExperience(e.target.value)}
-                        minLength={10}
-                        maxLength={2000}
-                        rows={4}
-                        placeholder={t.experiencePlaceholder}
-                        className="mt-2 w-full rounded-xl border border-white/20 bg-black/70 px-4 py-4 font-normal outline-none focus:border-purple-400"
-                      />
+                      Czy masz doświadczenie?
+                      <textarea value={applicationExperience} onChange={(e) => setApplicationExperience(e.target.value)} minLength={10} maxLength={2000} rows={3} placeholder="Opisz swoje doświadczenie..." className="mt-2 w-full rounded-xl border border-white/20 bg-black/70 px-4 py-4 font-normal outline-none focus:border-purple-400" />
                     </label>
-
                     <label className="block text-sm font-bold">
-                      {t.motivation}
-                      <textarea
-                        value={applicationMotivation}
-                        onChange={(e) => setApplicationMotivation(e.target.value)}
-                        minLength={10}
-                        maxLength={2000}
-                        rows={4}
-                        placeholder={t.motivationPlaceholder}
-                        className="mt-2 w-full rounded-xl border border-white/20 bg-black/70 px-4 py-4 font-normal outline-none focus:border-purple-400"
-                      />
+                      Opowiedz coś o sobie (minimum 5 zdań).
+                      <textarea value={applicantAbout} onChange={(e) => setApplicantAbout(e.target.value)} minLength={100} maxLength={2000} rows={5} placeholder="Napisz minimum pięć zdań o sobie..." className="mt-2 w-full rounded-xl border border-white/20 bg-black/70 px-4 py-4 font-normal outline-none focus:border-purple-400" />
+                    </label>
+                    <label className="block text-sm font-bold">
+                      Dlaczego chcesz dołączyć?
+                      <textarea value={applicationMotivation} onChange={(e) => setApplicationMotivation(e.target.value)} minLength={10} maxLength={2000} rows={3} placeholder="Napisz, dlaczego chcesz dołączyć..." className="mt-2 w-full rounded-xl border border-white/20 bg-black/70 px-4 py-4 font-normal outline-none focus:border-purple-400" />
                     </label>
 
                     {applicationMessage && (
@@ -1733,7 +2074,7 @@ export default function Home() {
                         className="flex w-[280px] flex-shrink-0 items-center gap-5 rounded-2xl border border-purple-400/30 bg-[#11111c] p-6"
                       >
                         <div className="flex h-20 w-20 flex-shrink-0 items-center justify-center overflow-hidden rounded-xl border border-purple-400/40 bg-purple-950 text-4xl">
-                          <span>đź§‘â€Ťđź’»</span>
+                          <span>🧑‍💻</span>
                         </div>
                         <div>
                           <h4 className="font-black text-purple-200">
@@ -1756,62 +2097,11 @@ export default function Home() {
               </div>
             )}
 
-            {/* USTAWIENIA */}
-            {activeTab === "settings" && (
-              <div className="mx-auto max-w-2xl rounded-3xl border border-purple-400/30 bg-black/75 p-6 backdrop-blur-md md:p-10">
-                <h3 className="text-3xl font-black text-purple-200">
-                  {t.settingsTitle}
-                </h3>
-
-                <div className="mt-8 rounded-2xl border border-white/15 bg-black/40 p-6">
-                  <h4 className="font-bold">{t.language}</h4>
-                  <div className="mt-4 flex gap-3">
-                    <button
-                      onClick={() => changeLanguage("pl")}
-                      className={`rounded-xl px-6 py-3 font-bold ${
-                        language === "pl"
-                          ? "bg-purple-600"
-                          : "border border-white/20 bg-black/30"
-                      }`}
-                    >
-                      đź‡µđź‡± Polski
-                    </button>
-                    <button
-                      onClick={() => changeLanguage("en")}
-                      className={`rounded-xl px-6 py-3 font-bold ${
-                        language === "en"
-                          ? "bg-purple-600"
-                          : "border border-white/20 bg-black/30"
-                      }`}
-                    >
-                      đź‡¬đź‡§ English
-                    </button>
-                  </div>
-                </div>
-
-                <div className="mt-5 rounded-2xl border border-white/15 bg-black/40 p-6">
-                  <h4 className="font-bold">{t.sound}</h4>
-                  <button
-                    onClick={toggleMusic}
-                    className="mt-4 rounded-xl bg-purple-600 px-6 py-3 font-bold hover:bg-purple-500"
-                  >
-                    {musicEnabled ? `đź”Š ${t.soundOn}` : `đź”‡ ${t.soundOff}`}
-                  </button>
-                </div>
-
-                <p className="mt-5 text-xs leading-6 text-white/50">
-                  {language === "pl"
-                    ? "Ustawienia języka i dźwięku są zapisywane w tej przeglądarce. Panel ownera pozostaje w języku polskim."
-                    : "Language and sound settings are saved in this browser. The owner panel remains in Polish."}
-                </p>
-              </div>
-            )}
-
             {/* ADMIN: ZGĹOSZENIA */}
             {activeTab === "support-admin" && (
               <div className="rounded-3xl border border-cyan-400/30 bg-black/75 p-6 backdrop-blur-md md:p-10">
                 <h3 className="text-3xl font-black text-cyan-200">
-                  {t.adminPanel} â€” {t.supportAdmin}
+                  {t.adminPanel} — {t.supportAdmin}
                 </h3>
 
                 {adminLoading ? (
@@ -1874,7 +2164,7 @@ export default function Home() {
             {activeTab === "recruitment-admin" && (
               <div className="rounded-3xl border border-yellow-400/30 bg-black/75 p-6 backdrop-blur-md md:p-10">
                 <h3 className="text-3xl font-black text-yellow-200">
-                  {t.adminPanel} â€” {t.recruitmentAdmin}
+                  {t.adminPanel} — {t.recruitmentAdmin}
                 </h3>
 
                 {adminLoading ? (
@@ -1899,10 +2189,14 @@ export default function Home() {
                         <p className="mt-3 break-all text-xs text-white/50">
                           {t.sender}: {application.user_id}
                         </p>
+                        <div className="mt-4 grid gap-2 text-sm text-white/70 sm:grid-cols-2">
+                          <p><span className="font-bold text-yellow-200">Imię:</span> {application.first_name || "—"}</p>
+                          <p><span className="font-bold text-yellow-200">Wiek:</span> {application.applicant_age ?? "—"}</p>
+                          <p><span className="font-bold text-yellow-200">Czy lubi zenciaka:</span> {application.likes_zenciaka ? "Tak" : application.likes_zenciaka === false ? "Nie" : "—"}</p>
+                        </div>
+                        {application.about && <div className="mt-5"><h5 className="font-bold">O sobie</h5><p className="mt-2 whitespace-pre-wrap leading-7 text-white/80">{application.about}</p></div>}
                         <h5 className="mt-5 font-bold">{t.experience}</h5>
-                        <p className="mt-2 whitespace-pre-wrap leading-7 text-white/80">
-                          {application.experience}
-                        </p>
+                        <p className="mt-2 whitespace-pre-wrap leading-7 text-white/80">{application.experience}</p>
                         <h5 className="mt-5 font-bold">{t.motivation}</h5>
                         <p className="mt-2 whitespace-pre-wrap leading-7 text-white/80">
                           {application.motivation}
@@ -1954,8 +2248,7 @@ export default function Home() {
             <a href="https://www.youtube.com/@MrCapybara-s" target="_blank" rel="noreferrer">
               YouTube
             </a>
-            <button onClick={() => openTab("settings")}>{t.settings}</button>
-          </div>
+            </div>
 
           <p className="mx-auto mt-6 max-w-2xl text-xs leading-6 text-white/50">
             TRAPMASTERS nie jest oficjalnie powiązany z BananaSMP.pl.

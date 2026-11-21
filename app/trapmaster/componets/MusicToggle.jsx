@@ -10,7 +10,10 @@ export default function MusicToggle() {
 
   useEffect(() => {
     const saved = localStorage.getItem(STORAGE_KEY);
-    setEnabled(saved === "true");
+    const frame = window.requestAnimationFrame(() => {
+      setEnabled(saved === "true");
+    });
+    return () => window.cancelAnimationFrame(frame);
   }, []);
 
   function toggleMusic() {
