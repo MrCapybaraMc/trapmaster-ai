@@ -61,7 +61,7 @@ begin
   return jsonb_build_object('success',true,'status',p_decision);
 end;
 $$;
-revoke all on function public.review_admin_application(uuid,text) from public;
+revoke all on function public.review_admin_application(uuid,text) from public, anon;
 grant execute on function public.review_admin_application(uuid,text) to authenticated;
 
 create or replace function public.get_discount_code_discount(p_code text, p_package_type text)
@@ -76,7 +76,7 @@ begin
   return coalesce(v_discount, 0);
 end;
 $$;
-revoke all on function public.get_discount_code_discount(text,text) from public;
+revoke all on function public.get_discount_code_discount(text,text) from public, anon;
 grant execute on function public.get_discount_code_discount(text,text) to authenticated;
 
 create or replace function public.create_order(p_minecraft_nick text,p_package_type text,p_discount_code text default '')
