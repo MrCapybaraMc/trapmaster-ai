@@ -535,12 +535,12 @@ export default function Home() {
   useEffect(() => {
     const savedMusic = localStorage.getItem(MUSIC_KEY);
     const savedLanguage = localStorage.getItem(LANGUAGE_KEY);
-
-    setMusicEnabled(savedMusic === "true");
-
-    if (savedLanguage === "pl" || savedLanguage === "en") {
-      setLanguage(savedLanguage);
-    }
+    const frame = window.requestAnimationFrame(() => {
+      setMusicEnabled(savedMusic === "true");
+      if (savedLanguage === "pl" || savedLanguage === "en") {
+        setLanguage(savedLanguage);
+      }
+    });
 
     function handleMusicChange(event: Event) {
       const customEvent = event as CustomEvent<boolean>;
@@ -556,6 +556,7 @@ export default function Home() {
     window.addEventListener("trapmasters-language-change", handleLanguageChange);
 
     return () => {
+      window.cancelAnimationFrame(frame);
       window.removeEventListener("trapmasters-music-change", handleMusicChange);
       window.removeEventListener("trapmasters-language-change", handleLanguageChange);
     };
@@ -774,15 +775,18 @@ export default function Home() {
   }, [supabase, isAdmin]);
 
   useEffect(() => {
-    if (activeTab === "forum") loadForum();
-    if (activeTab === "announcements") loadAnnouncements();
-    if (activeTab === "trappers") loadTrappers();
-    if (
-      (activeTab === "support-admin" || activeTab === "recruitment-admin") &&
-      isAdmin
-    ) {
-      loadAdminSubmissions();
-    }
+    const frame = window.requestAnimationFrame(() => {
+      if (activeTab === "forum") void loadForum();
+      if (activeTab === "announcements") void loadAnnouncements();
+      if (activeTab === "trappers") void loadTrappers();
+      if (
+        (activeTab === "support-admin" || activeTab === "recruitment-admin") &&
+        isAdmin
+      ) {
+        void loadAdminSubmissions();
+      }
+    });
+    return () => window.cancelAnimationFrame(frame);
   }, [
     activeTab,
     isAdmin,
