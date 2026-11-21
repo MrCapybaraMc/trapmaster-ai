@@ -52,7 +52,7 @@ begin
 end;
 $$;
 
-revoke all on function public.set_staff_role(uuid, text) from public;
+revoke all on function public.set_staff_role(uuid, text) from public, anon;
 grant execute on function public.set_staff_role(uuid, text) to authenticated;
 
 -- A confirmed application grants the regular Admin role.
@@ -104,7 +104,7 @@ begin
 end;
 $$;
 
-revoke all on function public.review_admin_application(uuid, text) from public;
+revoke all on function public.review_admin_application(uuid, text) from public, anon;
 grant execute on function public.review_admin_application(uuid, text) to authenticated;
 
 -- No additional orders trigger is created here. The existing production
@@ -154,5 +154,5 @@ begin
 end;
 $$;
 
-revoke all on function public.grant_admin_by_email(text) from public;
+revoke all on function public.grant_admin_by_email(text) from public, anon;
 grant execute on function public.grant_admin_by_email(text) to authenticated;
