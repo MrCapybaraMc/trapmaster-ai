@@ -30,6 +30,13 @@ type SupportTicket = {
   created_at: string;
 };
 
+type StaffRow = { user_id: string; role: string };
+type ProfileRow = { user_id: string; nickname: string | null };
+type StaffUser = StaffRow & { nickname: string };
+type AccessUser = { user_id: string; display_name: string | null; email: string | null; access_type: string; revoked: boolean; expires_at: string | null };
+type AccountUser = { user_id: string; display_name: string | null; email: string | null; suspended: boolean; suspended_at: string | null };
+type DiscountCode = { code: string; active: boolean; expires_at: string | null; discount_percent: number; package_type: string };
+
 type Application = {
   id: string;
   user_id: string;
@@ -47,6 +54,29 @@ type Application = {
 
 export default function AdminPage() {
   const [supabase, setSupabase] = useState<ReturnType<typeof createClient> | null>(null);
+
+  const [tab, setTab] = useState<Tab>("owner");
+
+  const [orders, setOrders] = useState<Order[]>([]);
+  const [tickets, setTickets] = useState<SupportTicket[]>([]);
+  const [applications, setApplications] = useState<Application[]>([]);
+
+  const [loading, setLoading] = useState(true);
+  const [isOwner, setIsOwner] = useState(false);
+  const [userRole, setUserRole] = useState("");
+  const canManageAccounts = userRole === "owner" || userRole === "headadmin";
+  const [busyId, setBusyId] = useState("");
+  const [message, setMessage] = useState("");
+  const [stats, setStats] = useState<Record<string, number | string | null> | null>(null);
+  const [accessUsers, setAccessUsers] = useState<AccessUser[]>([]);
+  const [accountUsers, setAccountUsers] = useState<AccountUser[]>([]);
+  const [discountCodes, setDiscountCodes] = useState<DiscountCode[]>([]);
+  const [staffUsers, setStaffUsers] = useState<StaffUser[]>([]);
+  const [adminGrantEmail, setAdminGrantEmail] = useState("");
+  const [newCode, setNewCode] = useState("");
+  const [newCodePackage, setNewCodePackage] = useState("day");
+  const [newCodePercent, setNewCodePercent] = useState("10");
+  const [newCodeHours, setNewCodeHours] = useState("");
 
   useEffect(() => {
     try {
@@ -70,28 +100,6 @@ export default function AdminPage() {
       setLoading(false);
     }
   }, []);
-  const [tab, setTab] = useState<Tab>("owner");
-
-  const [orders, setOrders] = useState<Order[]>([]);
-  const [tickets, setTickets] = useState<SupportTicket[]>([]);
-  const [applications, setApplications] = useState<Application[]>([]);
-
-  const [loading, setLoading] = useState(true);
-  const [isOwner, setIsOwner] = useState(false);
-  const [userRole, setUserRole] = useState("");
-  const canManageAccounts = userRole === "owner" || userRole === "headadmin";
-  const [busyId, setBusyId] = useState("");
-  const [message, setMessage] = useState("");
-  const [stats, setStats] = useState<any>(null);
-  const [accessUsers, setAccessUsers] = useState<any[]>([]);
-  const [accountUsers, setAccountUsers] = useState<any[]>([]);
-  const [discountCodes, setDiscountCodes] = useState<any[]>([]);
-  const [staffUsers, setStaffUsers] = useState<any[]>([]);
-  const [adminGrantEmail, setAdminGrantEmail] = useState("");
-  const [newCode, setNewCode] = useState("");
-  const [newCodePackage, setNewCodePackage] = useState("day");
-  const [newCodePercent, setNewCodePercent] = useState("10");
-  const [newCodeHours, setNewCodeHours] = useState("");
 
   const loadOrders = useCallback(async () => {
     if (!supabase) return;
@@ -139,9 +147,9 @@ export default function AdminPage() {
     if (!supabase || !["owner", "headadmin"].includes(userRole)) return;
     const { data, error } = await supabase.from("admin_users").select("user_id, role").order("created_at", { ascending: true });
     if (error) { setMessage(error.message); return; }
-    const ids = (data || []).map((row: any) => row.user_id);
-    const { data: profiles } = ids.length ? await supabase.from("profiles").select("user_id, nickname").in("user_id", ids) : { data: [] as any[] };
-    setStaffUsers((data || []).map((row: any) => ({ ...row, nickname: profiles?.find((p: any) => p.user_id === row.user_id)?.nickname || row.user_id })));
+    const ids = (data || []).map((row: StaffRow) => row.user_id);
+    const { data: profiles } = ids.length ? await supabase.from("profiles").select("user_id, nickname").in("user_id", ids) : { data: [] as ProfileRow[] };
+    setStaffUsers((data || []).map((row: StaffRow) => ({ ...row, nickname: profiles?.find((p: ProfileRow) => p.user_id === row.user_id)?.nickname || row.user_id })));
   }, [supabase, userRole]);
 
   async function changeStaffRole(userId: string, role: "admin" | "headadmin") {
