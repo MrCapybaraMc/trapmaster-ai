@@ -3,6 +3,7 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
+import Link from "next/link";
 import { createClient } from "../../lib/supabase/client";
 
 export default function RegisterPage() {
@@ -63,9 +64,9 @@ export default function RegisterPage() {
   return (
     <main className="min-h-screen bg-[#080b12] text-white flex items-center justify-center p-5">
       <div className="w-full max-w-md rounded-2xl border border-white/10 bg-[#111827] p-8 shadow-2xl">
-        <a href="/" className="text-sm text-gray-400 hover:text-white">
+        <Link href="/" className="text-sm text-gray-400 hover:text-white">
           ← Powrót na stronę główną
-        </a>
+        </Link>
 
         <h1 className="mt-6 text-3xl font-black">
           TRAP<span className="text-purple-400">MASTERS</span>

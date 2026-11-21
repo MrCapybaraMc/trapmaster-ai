@@ -3,6 +3,7 @@
 // Keep this file as plain JSX: do not add TypeScript generic annotations here.
 
 import { useCallback, useEffect, useState } from "react";
+import Link from "next/link";
 import { createClient } from "../../lib/supabase/client";
 
 export default function AccountPage() {
@@ -37,7 +38,12 @@ export default function AccountPage() {
     setLoading(false);
   }, [supabase]);
 
-  useEffect(() => { refresh(); }, [refresh]);
+  useEffect(() => {
+    const frame = window.requestAnimationFrame(() => {
+      void refresh();
+    });
+    return () => window.cancelAnimationFrame(frame);
+  }, [refresh]);
 
   async function saveProfile(e) {
     e.preventDefault();
@@ -104,7 +110,7 @@ export default function AccountPage() {
     <main className="min-h-screen bg-[#070910] px-5 py-10 text-white md:px-10">
       <div className="mx-auto max-w-6xl">
         <header className="flex flex-wrap items-center justify-between gap-4 border-b border-white/10 pb-7">
-          <div><a href="/" className="text-xl font-black">TRAP<span className="text-purple-400">MASTERS</span></a><h1 className="mt-4 text-4xl font-black">Moje konto</h1><p className="mt-2 text-gray-400">Twój profil, Daily i historia zamówień.</p></div>
+          <div><Link href="/" className="text-xl font-black">TRAP<span className="text-purple-400">MASTERS</span></Link><h1 className="mt-4 text-4xl font-black">Moje konto</h1><p className="mt-2 text-gray-400">Twój profil, Daily i historia zamówień.</p></div>
           <button onClick={handleSignOut} className="rounded-xl border border-red-400/30 bg-red-500/10 px-5 py-3 font-bold text-red-300">Wyloguj się</button>
         </header>
 
@@ -138,7 +144,7 @@ export default function AccountPage() {
           <div className="flex flex-wrap items-end justify-between gap-3"><div><h2 className="text-3xl font-black">Moje zamówienia</h2><p className="mt-2 text-gray-400">Historia zakupów i status dostępu.</p></div><span className="text-sm text-white/50">{orders.length} zamówień</span></div>
           {orders.length === 0 ? <p className="mt-6 rounded-2xl border border-white/10 bg-white/5 p-7 text-gray-400">Nie masz jeszcze zamówień.</p> : <div className="mt-6 space-y-3">{orders.map(order=><article key={order.id} className="flex flex-wrap items-center justify-between gap-4 rounded-2xl border border-white/10 bg-white/5 p-5"><div><h3 className="font-bold">{order.minecraft_nick} · {order.package_type}</h3><p className="mt-1 text-sm text-gray-400">{new Date(order.created_at).toLocaleString("pl-PL")} · {order.price_m}M</p></div><span className={order.status==="approved"?"text-green-300":order.status==="rejected"?"text-red-300":"text-amber-300"}>{order.status==="approved"?"Zaakceptowane":order.status==="rejected"?"Odrzucone":"Oczekujące"}</span></article>)}</div>}
         </section>
-        <footer className="mt-14 border-t border-white/10 pt-7 text-center"><a href="/" className="text-sm text-gray-400 underline">Wróć na stronę główną</a></footer>
+        <footer className="mt-14 border-t border-white/10 pt-7 text-center"><Link href="/" className="text-sm text-gray-400 underline">Wróć na stronę główną</Link></footer>
       </div>
     </main>
   );

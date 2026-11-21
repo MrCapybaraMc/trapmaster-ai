@@ -31,6 +31,7 @@ export default function OwnerPage() {
 
   const [admins, setAdmins] = useState<Admin[]>([]);
   const [gifts, setGifts] = useState<Gift[]>([]);
+  const [giftsCheckedAt, setGiftsCheckedAt] = useState<number | null>(null);
 
   const [adminEmail, setAdminEmail] = useState("");
   const [giftEmail, setGiftEmail] = useState("");
@@ -83,6 +84,7 @@ export default function OwnerPage() {
     }
 
     setGifts((data ?? []) as Gift[]);
+    setGiftsCheckedAt(Date.now());
   }, []);
 
   const refreshData = useCallback(async () => {
@@ -274,6 +276,13 @@ export default function OwnerPage() {
           </button>
 
           <button
+            onClick={() => router.push("/admin")}
+            className="rounded-xl px-5 py-3 bg-cyan-600 text-white font-bold hover:bg-cyan-500 transition"
+          >
+            Panel administratora
+          </button>
+
+          <button
             onClick={refreshData}
             disabled={working}
             className="rounded-xl px-5 py-3 bg-white/5 text-gray-300 hover:bg-white/10 transition disabled:opacity-50"
@@ -434,7 +443,7 @@ export default function OwnerPage() {
                   {gifts.map((gift) => {
                     const active =
                       gift.status === "active" &&
-                      new Date(gift.expires_at).getTime() > Date.now();
+                      giftsCheckedAt !== null && new Date(gift.expires_at).getTime() > giftsCheckedAt;
 
                     return (
                       <div

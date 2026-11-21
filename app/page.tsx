@@ -3,6 +3,7 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import { usePathname, useRouter } from "next/navigation";
+import Link from "next/link";
 import { createClient } from "../lib/supabase/client";
 
 type Package = {
@@ -452,12 +453,14 @@ export default function Home() {
 
   const [musicEnabled, setMusicEnabled] = useState(false);
   const [language, setLanguage] = useState<Language>("pl");
-  const [activeTab, setActiveTab] = useState<Tab>("forum");
-
-  useEffect(() => {
-    if (pathname === "/aktualizacje") setActiveTab("updates");
-    else if (pathname === "/ogloszenia") setActiveTab("announcements");
-  }, [pathname]);
+  const [selectedTab, setSelectedTab] = useState<Tab>("forum");
+  const activeTab: Tab =
+    pathname === "/aktualizacje"
+      ? "updates"
+      : pathname === "/ogloszenia"
+        ? "announcements"
+        : selectedTab;
+  const setActiveTab = setSelectedTab;
 
   const [minecraftNick, setMinecraftNick] = useState("");
   const [copied, setCopied] = useState(false);
@@ -532,12 +535,12 @@ export default function Home() {
   useEffect(() => {
     const savedMusic = localStorage.getItem(MUSIC_KEY);
     const savedLanguage = localStorage.getItem(LANGUAGE_KEY);
-
-    setMusicEnabled(savedMusic === "true");
-
-    if (savedLanguage === "pl" || savedLanguage === "en") {
-      setLanguage(savedLanguage);
-    }
+    const frame = window.requestAnimationFrame(() => {
+      setMusicEnabled(savedMusic === "true");
+      if (savedLanguage === "pl" || savedLanguage === "en") {
+        setLanguage(savedLanguage);
+      }
+    });
 
     function handleMusicChange(event: Event) {
       const customEvent = event as CustomEvent<boolean>;
@@ -553,6 +556,7 @@ export default function Home() {
     window.addEventListener("trapmasters-language-change", handleLanguageChange);
 
     return () => {
+      window.cancelAnimationFrame(frame);
       window.removeEventListener("trapmasters-music-change", handleMusicChange);
       window.removeEventListener("trapmasters-language-change", handleLanguageChange);
     };
@@ -771,15 +775,18 @@ export default function Home() {
   }, [supabase, isAdmin]);
 
   useEffect(() => {
-    if (activeTab === "forum") loadForum();
-    if (activeTab === "announcements") loadAnnouncements();
-    if (activeTab === "trappers") loadTrappers();
-    if (
-      (activeTab === "support-admin" || activeTab === "recruitment-admin") &&
-      isAdmin
-    ) {
-      loadAdminSubmissions();
-    }
+    const frame = window.requestAnimationFrame(() => {
+      if (activeTab === "forum") void loadForum();
+      if (activeTab === "announcements") void loadAnnouncements();
+      if (activeTab === "trappers") void loadTrappers();
+      if (
+        (activeTab === "support-admin" || activeTab === "recruitment-admin") &&
+        isAdmin
+      ) {
+        void loadAdminSubmissions();
+      }
+    });
+    return () => window.cancelAnimationFrame(frame);
   }, [
     activeTab,
     isAdmin,
@@ -1191,9 +1198,9 @@ export default function Home() {
         {/* NAWIGACJA */}
         <header className="border-b border-white/10 bg-black/35 backdrop-blur-md">
           <div className="mx-auto flex max-w-7xl flex-wrap items-center justify-between gap-4 px-6 py-5">
-            <a href="/" className="text-2xl font-black tracking-wider">
+            <Link href="/" className="text-2xl font-black tracking-wider">
               TRAP<span className="text-purple-500">MASTERS</span>
-            </a>
+            </Link>
 
             <nav className="flex flex-wrap items-center gap-4 text-sm text-gray-200">
               <a href="#oferta" className="hover:text-purple-400">

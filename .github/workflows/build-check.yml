@@ -2,9 +2,9 @@ name: Build and lint checks
 
 on:
   push:
-    branches: [beta-08-implementation, beta.09]
+    branches: [beta-08-implementation, beta.09, 'fix/beta09-lint-20261120']
   pull_request:
-    branches: [main]
+    branches: [main, beta.09]
     types: [opened, synchronize, reopened, ready_for_review]
 
 permissions:
