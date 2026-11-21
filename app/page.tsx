@@ -453,12 +453,14 @@ export default function Home() {
 
   const [musicEnabled, setMusicEnabled] = useState(false);
   const [language, setLanguage] = useState<Language>("pl");
-  const [activeTab, setActiveTab] = useState<Tab>("forum");
-
-  useEffect(() => {
-    if (pathname === "/aktualizacje") setActiveTab("updates");
-    else if (pathname === "/ogloszenia") setActiveTab("announcements");
-  }, [pathname]);
+  const [selectedTab, setSelectedTab] = useState<Tab>("forum");
+  const activeTab: Tab =
+    pathname === "/aktualizacje"
+      ? "updates"
+      : pathname === "/ogloszenia"
+        ? "announcements"
+        : selectedTab;
+  const setActiveTab = setSelectedTab;
 
   const [minecraftNick, setMinecraftNick] = useState("");
   const [copied, setCopied] = useState(false);
