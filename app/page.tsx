@@ -3,6 +3,7 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import { usePathname, useRouter } from "next/navigation";
+import Link from "next/link";
 import { createClient } from "../lib/supabase/client";
 
 type Package = {
@@ -1191,9 +1192,9 @@ export default function Home() {
         {/* NAWIGACJA */}
         <header className="border-b border-white/10 bg-black/35 backdrop-blur-md">
           <div className="mx-auto flex max-w-7xl flex-wrap items-center justify-between gap-4 px-6 py-5">
-            <a href="/" className="text-2xl font-black tracking-wider">
+            <Link href="/" className="text-2xl font-black tracking-wider">
               TRAP<span className="text-purple-500">MASTERS</span>
-            </a>
+            </Link>
 
             <nav className="flex flex-wrap items-center gap-4 text-sm text-gray-200">
               <a href="#oferta" className="hover:text-purple-400">
