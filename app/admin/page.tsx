@@ -96,26 +96,45 @@ export default function AdminPage() {
   const [newCodeHours, setNewCodeHours] = useState("");
 
   useEffect(() => {
-    try {
-      const client = createClient();
-      setSupabase(client);
+    let active = true;
+    const frame = window.requestAnimationFrame(() => {
       void (async () => {
-        const { data: userData, error: userError } = await client.auth.getUser();
-        if (userError || !userData.user) {
-          setIsOwner(false);
-          return;
+        try {
+          const client = createClient();
+          if (!active) return;
+          setSupabase(client);
+          const { data: userData, error: userError } = await client.auth.getUser();
+          if (!active) return;
+          if (userError || !userData.user) {
+            setIsOwner(false);
+            return;
+          }
+          const { data: roleData, error: roleError } = await client
+            .from("admin_users")
+            .select("role")
+            .eq("user_id", userData.user.id)
+            .maybeSingle();
+          if (!active) return;
+          const role = !roleError ? roleData?.role || "" : "";
+          setUserRole(role);
+          setIsOwner(role === "owner");
+          if (!["admin", "headadmin", "owner"].includes(role)) {
+            setMessage("Brak uprawnień do panelu administracyjnego.");
+          }
+        } catch (error) {
+          console.error("Supabase client initialization failed:", error);
+          if (active) {
+            setMessage("Brak konfiguracji Supabase. Sprawdź zmienne środowiskowe projektu.");
+            setLoading(false);
+          }
         }
-        const { data: roleData, error: roleError } = await client.from("admin_users").select("role").eq("user_id", userData.user.id).maybeSingle();
-        const role = !roleError ? roleData?.role || "" : "";
-        setUserRole(role);
-        setIsOwner(role === "owner");
-        if (!["admin", "headadmin", "owner"].includes(role)) setMessage("Brak uprawnień do panelu administracyjnego.");
       })();
-    } catch (error) {
-      console.error("Supabase client initialization failed:", error);
-      setMessage("Brak konfiguracji Supabase. Sprawdź zmienne środowiskowe projektu.");
-      setLoading(false);
-    }
+    });
+
+    return () => {
+      active = false;
+      window.cancelAnimationFrame(frame);
+    };
   }, []);
 
   const loadOrders = useCallback(async () => {
@@ -248,7 +267,11 @@ export default function AdminPage() {
   }, [tab, loadOrders, loadTickets, loadApplications, loadStats, loadAccess, loadAccountUsers, loadDiscountCodes, loadStaffUsers]);
 
   useEffect(() => {
-    if (supabase) void refresh();
+    if (!supabase) return;
+    const frame = window.requestAnimationFrame(() => {
+      void refresh();
+    });
+    return () => window.cancelAnimationFrame(frame);
   }, [supabase, refresh]);
 
   async function reviewOrder(orderId: string, decision: string) {
