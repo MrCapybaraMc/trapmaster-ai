@@ -38,7 +38,12 @@ export default function AccountPage() {
     setLoading(false);
   }, [supabase]);
 
-  useEffect(() => { refresh(); }, [refresh]);
+  useEffect(() => {
+    const frame = window.requestAnimationFrame(() => {
+      void refresh();
+    });
+    return () => window.cancelAnimationFrame(frame);
+  }, [refresh]);
 
   async function saveProfile(e) {
     e.preventDefault();
