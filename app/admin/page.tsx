@@ -52,6 +52,23 @@ type Application = {
   created_at: string;
 };
 
+function VideoBackground() {
+  return (
+    <>
+      <video
+        autoPlay
+        muted
+        loop
+        playsInline
+        className="fixed inset-0 w-full h-full object-cover -z-20"
+      >
+        <source src="/videos/for.mp4" type="video/mp4" />
+      </video>
+      <div className="fixed inset-0 bg-[#050811]/75 -z-10" />
+    </>
+  );
+}
+
 export default function AdminPage() {
   const [supabase, setSupabase] = useState<ReturnType<typeof createClient> | null>(null);
 
@@ -353,23 +370,6 @@ export default function AdminPage() {
         ? "bg-cyan-400 text-black"
         : "bg-white/10 text-white hover:bg-white/20"
     }`;
-
-  function VideoBackground() {
-    return (
-      <>
-        <video
-          autoPlay
-          muted
-          loop
-          playsInline
-          className="fixed inset-0 w-full h-full object-cover -z-20"
-        >
-          <source src="/videos/for.mp4" type="video/mp4" />
-        </video>
-        <div className="fixed inset-0 bg-[#050811]/75 -z-10" />
-      </>
-    );
-  }
 
   return (
     <main className="relative min-h-screen bg-[#080b12] text-white p-5 md:p-10">
