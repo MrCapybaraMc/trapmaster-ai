@@ -57,7 +57,7 @@ export default function UpdateOneLayout({children}:{children:ReactNode}){
  async function changeLanguage(next:string){
   setLanguage(next);document.documentElement.lang=next;
   const {data:auth}=await db.auth.getUser();
-  if(auth.user)await db.from("tm_user_settings").upsert({user_id:auth.user.id,language:next},{onConflict:"user_id"});
+  if(auth.user){const {data:current}=await db.from("tm_user_settings").select("videos_muted,uses_puller").eq("user_id",auth.user.id).maybeSingle();await db.from("tm_user_settings").upsert({user_id:auth.user.id,language:next,videos_muted:current?.videos_muted??true,uses_puller:current?.uses_puller??false},{onConflict:"user_id"});}
   window.dispatchEvent(new CustomEvent("trapmasters-language-change",{detail:next}));
  }
  const remaining=event?new Date(event.starts_at).getTime()-now:0;
