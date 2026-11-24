@@ -14,6 +14,7 @@ export default function OpinionsPage(){
   const {data,error}=await db.from("tm_opinions").select("*").order("created_at",{ascending:false});
   if(error)setMessage(error.message);else setItems((data??[]) as Opinion[]);
  }
+ // eslint-disable-next-line react-hooks/set-state-in-effect
  useEffect(()=>{void load();},[]);
  async function save(e:FormEvent){e.preventDefault();setBusy(true);
   const result=editing?await db.from("tm_opinions").update({body:body.trim(),updated_at:new Date().toISOString()}).eq("id",editing):await db.from("tm_opinions").insert({user_id:userId,body:body.trim()});
