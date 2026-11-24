@@ -59,7 +59,7 @@ begin
  insert into public.tm_notifications(user_id,kind,title,body,href)
  select distinct recipients.user_id,'new_trap','Dodano nowy trap',new.title,'/update-1'
  from (
-  select ur.user_id from public.user_roles ur where ur.role in ('trapmasters','trapcreator')
+  select ur.user_id from public.user_roles ur where ur.role in ('trapmasters','trapcreator','admin','headadmin','owner')
   union
   select o.user_id from public.orders o where o.status='approved' and (o.expires_at is null or o.expires_at>now()) and coalesce(o.is_gift,false)=false
   union
