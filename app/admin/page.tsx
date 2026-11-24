@@ -300,6 +300,9 @@ export default function AdminPage() {
     if (!window.confirm(`Czy na pewno chcesz ${action} temu użytkownikowi?`)) return;
     setBusyId(userId); setMessage("");
     const { error } = await supabase.rpc(suspend ? "suspend_trapmasters_account" : "restore_trapmasters_account", { p_user_id: userId });
+    if (!error && userRole === "owner") {
+      await supabase.rpc("tm_log_account_security_action", { p_target_user_id:userId, p_action:suspend?"account_locked":"account_unlocked", p_details:{source:"admin_panel"} });
+    }
     setMessage(error ? error.message : suspend ? "Konto zostało zablokowane." : "Dostęp do strony został przywrócony.");
     await loadAccountUsers(); setBusyId("");
   }
