@@ -41,6 +41,7 @@ export default function CommunityPage() {
       setChat((messages ?? []) as ChatMessage[]);
     }
   }
+  // eslint-disable-next-line react-hooks/set-state-in-effect
   useEffect(() => { void refresh(); }, []);
 
   async function submit(event: FormEvent, kind: string) {
