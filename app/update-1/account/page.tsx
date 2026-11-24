@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { createClient } from "@/lib/supabase/client";
+import Link from "next/link";
 
 type Order={id:string;package_type:string;status:string;expires_at:string|null;created_at:string;recipient_minecraft_nick?:string|null;recipient_user_id?:string|null;user_id?:string;is_gift?:boolean};
 type Trap={id:string;title:string};
@@ -58,6 +59,6 @@ export default function UpdateAccountPage(){
   <section className="mb-6 rounded-2xl border border-white/10 bg-white/5 p-5"><h2 className="mb-4 text-xl font-bold">Historia pakietów</h2>{orders.map(o=><article key={o.id} className="mb-2 flex flex-wrap justify-between gap-2 rounded-xl bg-black/20 p-3"><span>{o.package_type}{o.is_gift?" · prezent dla "+(o.recipient_minecraft_nick??"konta"):""}</span><span>{o.status}</span><span className="text-xs text-white/40">{new Date(o.created_at).toLocaleDateString("pl-PL")}</span></article>)}{!orders.length&&<p className="text-white/50">Brak zamówień.</p>}</section>
   <div className="grid gap-6 md:grid-cols-2"><section className="rounded-2xl border border-white/10 bg-white/5 p-5"><h2 className="mb-3 text-xl font-bold">Ulubione trapy</h2>{favorites.map(t=><p key={t.id} className="border-b border-white/10 py-2">{t.title}</p>)}{!favorites.length&&<p className="text-white/50">Brak ulubionych.</p>}</section><section className="rounded-2xl border border-white/10 bg-white/5 p-5"><h2 className="mb-3 text-xl font-bold">Ostatnio pobierane</h2>{downloads.map((t,i)=><p key={t.id+"-"+i} className="border-b border-white/10 py-2">{t.title}</p>)}{!downloads.length&&<p className="text-white/50">Brak pobrań.</p>}</section></div>
   <section className="mt-6 rounded-2xl border border-white/10 bg-white/5 p-5"><h2 className="mb-3 text-xl font-bold">Ostatnio oglądane</h2>{recent.map((t,i)=><p key={t.id+"-"+i} className="border-b border-white/10 py-2">{t.title}</p>)}{!recent.length&&<p className="text-white/50">Brak ostatnio oglądanych trapów.</p>}</section>
-  <section className="mt-6 rounded-2xl border border-white/10 bg-white/5 p-5"><h2 className="mb-2 text-xl font-bold">Bezpieczeństwo konta</h2><p className="mb-3 text-sm text-white/60">Hasła nie są dostępne do odczytu dla nikogo, także Ownera. Możesz skorzystać z bezpiecznej zmiany lub odzyskiwania hasła.</p><a href="/reset-password" className="inline-flex rounded-xl bg-purple-600 px-4 py-2 font-bold">Zmień / odzyskaj hasło</a></section>
+  <section className="mt-6 rounded-2xl border border-white/10 bg-white/5 p-5"><h2 className="mb-2 text-xl font-bold">Bezpieczeństwo konta</h2><p className="mb-3 text-sm text-white/60">Hasła nie są dostępne do odczytu dla nikogo, także Ownera. Możesz skorzystać z bezpiecznej zmiany lub odzyskiwania hasła.</p><Link href="/reset-password" className="inline-flex rounded-xl bg-purple-600 px-4 py-2 font-bold">Zmień / odzyskaj hasło</Link></section>
  </div></main>;
 }
