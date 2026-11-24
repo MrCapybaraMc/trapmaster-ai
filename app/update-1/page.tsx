@@ -4,6 +4,7 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { createClient } from "@/lib/supabase/client";
 
+type Review = {id:string;user_id:string;rating:number;body:string;created_at:string};
 type Trap = {
   id: string; title: string; summary: string; description: string;
   video_url: string | null; extra_video_url: string | null; schematic_url: string | null; instructions: string;
@@ -40,6 +41,7 @@ export default function UpdateOnePage() {
   const [trapTypeFilter, setTrapTypeFilter] = useState("all");
   const [compareIds, setCompareIds] = useState<string[]>([]);
   const [reviewSummary, setReviewSummary] = useState({ average: 0, count: 0 });
+  const [reviewList,setReviewList]=useState<Review[]>([]);
   const [editingTrap, setEditingTrap] = useState<string | null>(null);
   const [comboCode,setComboCode] = useState("");
   const [userId, setUserId] = useState("");
@@ -106,8 +108,9 @@ export default function UpdateOnePage() {
   async function openTrap(trap: Trap) {
     setSelected(trap);
     await supabase.from("trap_views").insert({ user_id: userId, trap_id: trap.id });
-    const { data } = await supabase.from("trap_reviews").select("rating").eq("trap_id", trap.id);
-    const ratings = (data ?? []).map((item: {rating:number}) => item.rating);
+    const { data } = await supabase.from("trap_reviews").select("id,user_id,rating,body,created_at").eq("trap_id", trap.id).order("created_at",{ascending:false});
+    const reviews = (data ?? []) as Review[]; setReviewList(reviews);
+    const ratings = reviews.map((item) => item.rating);
     setReviewSummary({ count: ratings.length, average: ratings.length ? ratings.reduce((a:number,b:number)=>a+b,0)/ratings.length : 0 });
   }
 
@@ -203,7 +206,7 @@ export default function UpdateOnePage() {
           <select className={inputClass} value={trapTypeFilter} onChange={e=>setTrapTypeFilter(e.target.value)}><option value="all">Typ: dowolny</option><option value="piston">Piston trap</option><option value="railgun">Railgun</option></select>
         </section>
         {selected ? <article className="rounded-2xl border border-purple-400/30 bg-white/5 p-6">
-          <button onClick={()=>setSelected(null)} className="mb-4 text-sm text-purple-300">← Wróć do listy</button><h2 className="text-3xl font-black">{selected.title}</h2><p className="mt-2 text-white/70">{selected.summary}</p><p className="mt-4 whitespace-pre-wrap">{selected.description}</p><p className="mt-3 text-sm text-white/60">Średnia ocena: {reviewSummary.average.toFixed(1)}/10 ({reviewSummary.count} ocen)</p><h3 className="mt-5 font-bold">Instrukcja</h3><p className="mt-2 whitespace-pre-wrap text-white/80">{selected.instructions||"Brak instrukcji."}</p>
+          <button onClick={()=>setSelected(null)} className="mb-4 text-sm text-purple-300">← Wróć do listy</button><h2 className="text-3xl font-black">{selected.title}</h2><p className="mt-2 text-white/70">{selected.summary}</p><p className="mt-4 whitespace-pre-wrap">{selected.description}</p><p className="mt-3 text-sm text-white/60">Średnia ocena: {reviewSummary.average.toFixed(1)}/10 ({reviewSummary.count} ocen)</p><section className="mt-5 rounded-xl bg-black/20 p-4"><h3 className="font-bold">Opinie użytkowników</h3><div className="mt-3 space-y-3">{reviewList.map(review=><article key={review.id} className="border-b border-white/10 pb-3"><div className="flex justify-between gap-2"><strong>{review.user_id===userId?"Twoja opinia":"Użytkownik"}</strong><span className="text-sm text-amber-200">{review.rating}/10</span></div><p className="mt-1 whitespace-pre-wrap text-sm text-white/70">{review.body}</p></article>)}{!reviewList.length&&<p className="text-sm text-white/50">Brak opinii. Możesz dodać pierwszą.</p>}</div></section><h3 className="mt-5 font-bold">Instrukcja</h3><p className="mt-2 whitespace-pre-wrap text-white/80">{selected.instructions||"Brak instrukcji."}</p>
           <div className="mt-5 flex flex-wrap gap-3">{selected.video_url&&<a className="rounded-xl bg-red-600 px-4 py-2" href={selected.video_url} target="_blank" rel="noreferrer">Otwórz film</a>}{(selected.feather_falling||selected.totems)&&!selected.puller&&selected.extra_video_url&&<a className="rounded-xl bg-red-800 px-4 py-2" href={selected.extra_video_url} target="_blank" rel="noreferrer">Dodatkowy film</a>}{selected.schematic_url&&<a className="rounded-xl bg-blue-600 px-4 py-2" href={selected.schematic_url} onClick={() => { void supabase.rpc("tm_record_trap_download", { p_trap_id: selected.id }); }} target="_blank" rel="noreferrer">Pobierz schemat</a>}</div>
           {(!selected.feather_falling&&!selected.totems)&&<p className="mt-5 rounded-xl bg-amber-500/10 p-3 text-amber-200">proszę po wybudowaniu trapa po funnelach 30blokow w dół i dripstone</p>}
           {(selected.feather_falling||selected.totems)&&!selected.puller&&<p className="mt-3 text-sm text-purple-200">Dla konfiguracji z totemami lub Feather Falling bez Pullera wymagany jest dodatkowy film instruktażowy.</p>}
