@@ -39,6 +39,7 @@ export default function UpdateOnePage() {
   const [compareIds, setCompareIds] = useState<string[]>([]);
   const [reviewSummary, setReviewSummary] = useState({ average: 0, count: 0 });
   const [editingTrap, setEditingTrap] = useState<string | null>(null);
+  const [comboCode,setComboCode] = useState("");
   const [userId, setUserId] = useState("");
   const [isStaff, setIsStaff] = useState(false);
 
@@ -80,6 +81,13 @@ export default function UpdateOnePage() {
     setBusy(false);
     if (error) { setMessage(error.message); return; }
     setForm(emptyTrap); setEditingTrap(null); setShowForm(false); setMessage(editingTrap ? "Trap zaktualizowany." : "Trap dodany."); await load();
+  }
+
+  async function redeemCombo(event: React.FormEvent) {
+    event.preventDefault();
+    const { data, error } = await supabase.rpc("tm_redeem_supercombo", { p_code: comboCode.trim() });
+    setMessage(error ? error.message : `Kod wykorzystany. Nagrody: ${(data?.discount_codes ?? []).join(", ") || "dodane do konta"}.`);
+    if (!error) setComboCode("");
   }
 
   async function saveVideoMute(next: boolean) {
@@ -159,6 +167,7 @@ export default function UpdateOnePage() {
           <button onClick={() => setShowForm((v)=>!v)} className="rounded-xl bg-emerald-600 px-4 py-2 text-sm font-bold">+ Dodaj trap</button>
         </nav>
         {message && <p role="status" className="mb-4 rounded-xl border border-white/10 bg-white/5 p-3 text-sm">{message}</p>}
+        <form onSubmit={redeemCombo} className="relative z-10 mb-5 flex flex-wrap gap-2 rounded-xl border border-white/10 bg-black/40 p-3"><input value={comboCode} onChange={e=>setComboCode(e.target.value)} placeholder="Kod SuperCombo" className="min-w-0 flex-1 rounded-lg border border-white/10 bg-black/30 px-3 py-2 text-white"/><button className="rounded-lg bg-purple-600 px-4 py-2 font-bold">Wykorzystaj kod</button></form>
         {showForm && <form onSubmit={saveTrap} className="mb-6 grid gap-3 rounded-2xl border border-purple-400/30 bg-white/5 p-5 md:grid-cols-2">
           <input className={inputClass} placeholder="Nazwa trapa" required value={form.title} onChange={e=>setForm({...form,title:e.target.value})}/>
           <input className={inputClass} placeholder="Krótki opis" value={form.summary} onChange={e=>setForm({...form,summary:e.target.value})}/>
