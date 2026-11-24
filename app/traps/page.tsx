@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState, type FormEvent } from "react";
+import { createClient } from "../../lib/supabase/client";
 
 type Trap = {
   id: string;
@@ -64,7 +65,10 @@ const emptyForm = {
 };
 
 export default function TrapsPage() {
+  const [supabase] = useState(() => typeof window === "undefined" ? null : createClient());
   const [traps, setTraps] = useState<Trap[]>(starterTraps);
+  const [userId, setUserId] = useState<string | null>(null);
+  const [dataMessage, setDataMessage] = useState("Ładowanie wspólnej biblioteki…");
   const [ready, setReady] = useState(false);
   const [search, setSearch] = useState("");
   const [mode, setMode] = useState("Wszystkie");
@@ -79,20 +83,35 @@ export default function TrapsPage() {
   const [favorites, setFavorites] = useState<string[]>([]);
 
   useEffect(() => {
-    try {
-      const saved = localStorage.getItem(STORAGE_KEY);
-      if (saved) setTraps(JSON.parse(saved) as Trap[]);
+    let active = true;
+    async function loadSharedData() {
+      if (!supabase) return;
+      const [{ data: authData }, { data, error }] = await Promise.all([
+        supabase.auth.getUser(),
+        supabase.from("traps").select("*").order("created_at", { ascending: false }),
+      ]);
+      if (!active) return;
+      setUserId(authData.user?.id ?? null);
+      if (error) {
+        setDataMessage("Wspólna biblioteka nie jest jeszcze podłączona. Wyświetlam podgląd lokalny.");
+      } else {
+        const shared = (data ?? []).map((row: any) => ({
+          id: row.id, name: row.title, gameMode: row.game_mode === "Both" ? "Oba" : row.game_mode,
+          type: row.trap_type, armor: row.armor_types ?? [], puller: row.requires_puller,
+          totems: row.uses_totems, featherFalling: row.requires_feather_falling,
+          description: row.description, videoUrl: row.video_url ?? "", schematicUrl: row.schematic_url ?? "",
+          instructions: row.build_instructions, extraVideoUrl: row.extra_video_url ?? "",
+        })) as Trap[];
+        setTraps(shared);
+        setDataMessage("Połączono ze wspólną biblioteką TrapMasters.");
+      }
       const savedFavorites = localStorage.getItem(STORAGE_KEY + "_favorites");
       if (savedFavorites) setFavorites(JSON.parse(savedFavorites) as string[]);
-    } catch {
-      // Ignore invalid local preview data and keep the sample cards.
+      setReady(true);
     }
-    setReady(true);
-  }, []);
-
-  useEffect(() => {
-    if (ready) localStorage.setItem(STORAGE_KEY, JSON.stringify(traps));
-  }, [traps, ready]);
+    void loadSharedData();
+    return () => { active = false; };
+  }, [supabase]);
 
   useEffect(() => {
     if (ready) localStorage.setItem(STORAGE_KEY + "_favorites", JSON.stringify(favorites));
@@ -109,19 +128,34 @@ export default function TrapsPage() {
       && (type === "Wszystkie" || trap.type === type);
   }), [traps, search, mode, armor, puller, totems, feather, type]);
 
-  function addTrap(event: FormEvent<HTMLFormElement>) {
+  async function addTrap(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     if (!form.name.trim()) return;
-    const next: Trap = {
-      ...form,
-      id: crypto.randomUUID(),
-      name: form.name.trim(),
-      armor: form.armor.split(",").map((item) => item.trim()).filter(Boolean),
+    if (!supabase || !userId) {
+      setDataMessage("Aby dodać wspólny wpis, zaloguj się na konto TrapMasters.");
+      return;
+    }
+    const payload = {
+      title: form.name.trim(), description: form.description, game_mode: form.gameMode === "Oba" ? "Both" : form.gameMode,
+      trap_type: form.type, armor_types: form.armor.split(",").map((item) => item.trim()).filter(Boolean),
+      requires_puller: form.puller, uses_totems: form.totems, requires_feather_falling: form.featherFalling,
+      video_url: form.videoUrl || null, schematic_url: form.schematicUrl || null,
+      build_instructions: form.instructions, created_by: userId,
     };
-    setTraps((current) => [next, ...current]);
-    setSelected(next);
+    const { data, error } = await supabase.from("traps").insert(payload).select("*").single();
+    if (error || !data) {
+      setDataMessage(error?.message ?? "Nie udało się zapisać trapa.");
+      return;
+    }
+    const created: Trap = { id: data.id, name: data.title, gameMode: data.game_mode === "Both" ? "Oba" : data.game_mode,
+      type: data.trap_type, armor: data.armor_types ?? [], puller: data.requires_puller, totems: data.uses_totems,
+      featherFalling: data.requires_feather_falling, description: data.description, videoUrl: data.video_url ?? "",
+      schematicUrl: data.schematic_url ?? "", instructions: data.build_instructions };
+    setTraps((current) => [created, ...current]);
+    setSelected(created);
     setForm(emptyForm);
     setShowForm(false);
+    setDataMessage("Trap został dodany do wspólnej biblioteki.");
   }
 
   function toggleFavorite(id: string) {
@@ -156,7 +190,7 @@ export default function TrapsPage() {
 
         {showForm && <form onSubmit={addTrap} className="mb-8 rounded-3xl border border-violet-400/25 bg-[#111322] p-6 sm:p-8">
           <h2 className="text-2xl font-black">Dodaj nowy trap</h2>
-          <p className="mt-2 text-sm text-white/50">Formularz demonstracyjny bety. Wpis zostanie zapisany lokalnie w tej przeglądarce.</p>
+          <p className="mt-2 text-sm text-white/50">Dodawanie zapisuje wpis we wspólnej bibliotece. Wymaga zalogowania i roli TrapCreator lub administratora.</p>
           <div className="mt-6 grid gap-4 sm:grid-cols-2">
             <label className="text-sm font-bold">Nazwa trapa<input required value={form.name} onChange={(e) => setForm({...form, name:e.target.value})} className="mt-2 w-full rounded-xl border border-white/10 bg-black/30 px-4 py-3 font-normal outline-none focus:border-violet-400" placeholder="Np. Piston drop trap" /></label>
             <label className="text-sm font-bold">Tryb<select value={form.gameMode} onChange={(e) => setForm({...form, gameMode:e.target.value as Trap["gameMode"]})} className="mt-2 w-full rounded-xl border border-white/10 bg-[#0b0d18] px-4 py-3"><option>BananaSMP</option><option>Hoplite</option><option>Oba</option></select></label>
@@ -175,6 +209,7 @@ export default function TrapsPage() {
           <button type="submit" className="mt-5 rounded-xl bg-violet-500 px-6 py-3 font-black hover:bg-violet-400">Zapisz trap</button>
         </form>}
 
+        <p className="mb-4 text-xs text-white/45" role="status">{dataMessage}</p>
         <section className="mb-6 rounded-2xl border border-white/10 bg-[#111322]/90 p-4 sm:p-5">
           <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
             <input value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Szukaj nazwy lub opisu..." className="rounded-xl border border-white/10 bg-black/30 px-4 py-3 outline-none focus:border-violet-400 sm:col-span-2" />
@@ -213,7 +248,7 @@ export default function TrapsPage() {
           </section>
         </div>}
 
-        <footer className="mt-12 border-t border-white/10 pt-5 text-center text-xs leading-6 text-white/35">TrapMasters Update 1.0 • Widok testowy. Wpisy i ulubione są obecnie zapisywane tylko w pamięci lokalnej tej przeglądarki; wspólna baza, logowanie i uprawnienia zostaną podłączone po przygotowaniu osobnego środowiska beta.</footer>
+        <footer className="mt-12 border-t border-white/10 pt-5 text-center text-xs leading-6 text-white/35">TrapMasters Update 1.0 • Widok testowy. Lista trapów pobierana jest ze wspólnej bazy beta, gdy migracja zostanie wdrożona. Ulubione pozostają lokalne w tej wersji.</footer>
       </div>
     </main>
   );
