@@ -40,7 +40,7 @@ export default function UpdateAccountPage(){
  }
  // eslint-disable-next-line react-hooks/set-state-in-effect
  useEffect(()=>{void load();},[]);
- async function buyGift(e:React.FormEvent){e.preventDefault();setBusy(true);const {data,error}=await db.rpc("tm_create_gift_order",{p_recipient_nick:giftNick.trim(),p_package_type:giftPackage,p_message:giftMessage.trim()});setBusy(false);setMessage(error?error.message:(`Utworzono zamówienie prezentowe. Numer: ${data?.order_id??"—"}.`));if(!error){setGiftNick("");setGiftMessage("");await load();}}
+ async function buyGift(e:React.FormEvent){e.preventDefault();if(!window.confirm("Czy na pewno pakiet ma trafić na konto Minecraft: "+giftNick.trim()+"? Sprawdź nick przed utworzeniem zamówienia."))return;setBusy(true);const {data,error}=await db.rpc("tm_create_gift_order",{p_recipient_nick:giftNick.trim(),p_package_type:giftPackage,p_message:giftMessage.trim()});setBusy(false);setMessage(error?error.message:(`Utworzono zamówienie prezentowe. Numer: ${data?.order_id??"—"}.`));if(!error){setGiftNick("");setGiftMessage("");await load();}}
  async function redeemCombo(e:React.FormEvent){e.preventDefault();setBusy(true);const {data,error}=await db.rpc("tm_redeem_supercombo",{p_code:comboCode.trim()});setBusy(false);setMessage(error?error.message:(`Kod wykorzystany. Przyznane rabaty: ${(data?.discount_codes??[]).join(", ")||"nagroda dodana do konta"}.`));if(!error){setComboCode("");await load();}}
  async function savePuller(next:boolean){
   setBusy(true);setUsesPuller(next);
