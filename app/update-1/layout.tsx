@@ -21,8 +21,8 @@ export default function UpdateOneLayout({children}:{children:ReactNode}){
   let active=true;
   async function load(){
    const {data:auth}=await db.auth.getUser();
-   if(auth.user){await db.from("tm_page_views").insert({user_id:auth.user.id,page_path:pathname});}
-   else {sessionKey.current=sessionKey.current??crypto.randomUUID();await db.from("tm_page_views").insert({session_key:sessionKey.current,page_path:pathname});}
+   sessionKey.current=sessionKey.current??crypto.randomUUID();
+   await db.from("tm_page_views").insert({user_id:auth.user?.id??null,session_key:sessionKey.current,page_path:pathname});
    const [{data:events},{data:settings},{data:orders}]=await Promise.all([
     db.from("tm_events").select("id,title,description,starts_at").eq("active",true).order("starts_at",{ascending:true}).limit(10),
     auth.user?db.from("tm_user_settings").select("language").eq("user_id",auth.user.id).maybeSingle():Promise.resolve({data:null}),
