@@ -40,11 +40,14 @@ export default function UpdateOnePage() {
   const [reviewSummary, setReviewSummary] = useState({ average: 0, count: 0 });
   const [editingTrap, setEditingTrap] = useState<string | null>(null);
   const [userId, setUserId] = useState("");
+  const [isStaff, setIsStaff] = useState(false);
 
   const load = useCallback(async () => {
     const { data: auth } = await supabase.auth.getUser();
     if (!auth.user) { setMessage("Zaloguj się, aby korzystać z katalogu."); return; }
     setUserId(auth.user.id);
+    const { data: roleRows } = await supabase.from("user_roles").select("role").eq("user_id",auth.user.id);
+    setIsStaff((roleRows??[]).some((row:{role:string})=>["admin","headadmin","owner"].includes(row.role)));
     const { data: preferences } = await supabase.from("tm_user_settings").select("videos_muted").eq("user_id",auth.user.id).maybeSingle();
     setVideoMuted(preferences?.videos_muted ?? true);
     const { data, error } = await supabase.from("traps").select("*").order("created_at", { ascending: false });
@@ -118,6 +121,14 @@ export default function UpdateOnePage() {
     const body = window.prompt("Krótka opinia (opcjonalnie):") ?? "";
     const { error } = await supabase.from("trap_reviews").upsert({ trap_id: trapId, user_id: userId, rating, body }, { onConflict: "trap_id,user_id" });
     setMessage(error ? error.message : "Opinia zapisana.");
+    if (!error && selected) await openTrap(selected);
+  }
+
+  async function deleteTrap(trapId: string) {
+    if (!isStaff || !window.confirm("Usunąć ten trap?")) return;
+    const { error } = await supabase.from("traps").delete().eq("id",trapId);
+    setMessage(error ? error.message : "Trap usunięty.");
+    if (!error) { setSelected(null); await load(); }
   }
 
   async function reportTrap(trapId: string) {
@@ -167,11 +178,11 @@ export default function UpdateOnePage() {
         </section>
         {selected ? <article className="rounded-2xl border border-purple-400/30 bg-white/5 p-6">
           <button onClick={()=>setSelected(null)} className="mb-4 text-sm text-purple-300">← Wróć do listy</button><h2 className="text-3xl font-black">{selected.title}</h2><p className="mt-2 text-white/70">{selected.summary}</p><p className="mt-4 whitespace-pre-wrap">{selected.description}</p><p className="mt-3 text-sm text-white/60">Średnia ocena: {reviewSummary.average.toFixed(1)}/10 ({reviewSummary.count} ocen)</p><h3 className="mt-5 font-bold">Instrukcja</h3><p className="mt-2 whitespace-pre-wrap text-white/80">{selected.instructions||"Brak instrukcji."}</p>
-          <div className="mt-5 flex flex-wrap gap-3">{selected.video_url&&<a className="rounded-xl bg-red-600 px-4 py-2" href={selected.video_url} target="_blank" rel="noreferrer">Otwórz film</a>}{selected.extra_video_url&&<a className="rounded-xl bg-red-800 px-4 py-2" href={selected.extra_video_url} target="_blank" rel="noreferrer">Dodatkowy film</a>}{selected.schematic_url&&<a className="rounded-xl bg-blue-600 px-4 py-2" href={selected.schematic_url} onClick={() => { void supabase.rpc("tm_record_trap_download", { p_trap_id: selected.id }); }} target="_blank" rel="noreferrer">Pobierz schemat</a>}</div>
+          <div className="mt-5 flex flex-wrap gap-3">{selected.video_url&&<a className="rounded-xl bg-red-600 px-4 py-2" href={selected.video_url} target="_blank" rel="noreferrer">Otwórz film</a>}{(selected.feather_falling||selected.totems)&&!selected.puller&&selected.extra_video_url&&<a className="rounded-xl bg-red-800 px-4 py-2" href={selected.extra_video_url} target="_blank" rel="noreferrer">Dodatkowy film</a>}{selected.schematic_url&&<a className="rounded-xl bg-blue-600 px-4 py-2" href={selected.schematic_url} onClick={() => { void supabase.rpc("tm_record_trap_download", { p_trap_id: selected.id }); }} target="_blank" rel="noreferrer">Pobierz schemat</a>}</div>
           {(!selected.feather_falling&&!selected.totems)&&<p className="mt-5 rounded-xl bg-amber-500/10 p-3 text-amber-200">proszę po wybudowaniu trapa po funnelach 30blokow w dół i dripstone</p>}
-          {(selected.feather_falling||selected.totems)&&!selected.puller&&<p className="mt-3 text-sm text-purple-200">Wymagane dodatkowe objaśnienie — dodaj odpowiedni film do instrukcji.</p>}
-          <div className="mt-5 flex flex-wrap gap-2">{selected.created_by===userId&&<button onClick={()=>editTrap(selected)} className="rounded-xl border border-white/20 px-4 py-2">Edytuj mój trap</button>}<button onClick={()=>void toggleFavorite(selected.id)} className="rounded-xl border border-white/20 px-4 py-2">☆ Ulubione</button><button onClick={()=>void addReview(selected.id)} className="rounded-xl border border-white/20 px-4 py-2">Oceń 1–10</button><button onClick={()=>void reportTrap(selected.id)} className="rounded-xl border border-white/20 px-4 py-2">Zgłoś błąd</button></div>
-        </article> : <><div className="mb-4 rounded-2xl border border-white/10 bg-white/5 p-4"><p className="font-bold">Porównanie ({compareIds.length}/3)</p><div className="mt-2 flex flex-wrap gap-3">{compareIds.map(id=>{const item=traps.find(t=>t.id===id);return item?<span key={id} className="rounded-lg bg-white/10 px-3 py-2 text-sm">{item.title}</span>:null;})}</div></div><div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+          {(selected.feather_falling||selected.totems)&&!selected.puller&&<p className="mt-3 text-sm text-purple-200">Dla konfiguracji z totemami lub Feather Falling bez Pullera wymagany jest dodatkowy film instruktażowy.</p>}
+          <div className="mt-5 flex flex-wrap gap-2">{(selected.created_by===userId||isStaff)&&<button onClick={()=>editTrap(selected)} className="rounded-xl border border-white/20 px-4 py-2">Edytuj trap</button>}{isStaff&&<button onClick={()=>void deleteTrap(selected.id)} className="rounded-xl border border-red-400/30 px-4 py-2 text-red-300">Usuń trap</button>}<button onClick={()=>void toggleFavorite(selected.id)} className="rounded-xl border border-white/20 px-4 py-2">☆ Ulubione</button><button onClick={()=>void addReview(selected.id)} className="rounded-xl border border-white/20 px-4 py-2">Oceń 1–10</button><button onClick={()=>void reportTrap(selected.id)} className="rounded-xl border border-white/20 px-4 py-2">Zgłoś błąd</button></div>
+        </article> : <><div className="mb-4 rounded-2xl border border-white/10 bg-white/5 p-4"><p className="font-bold">Porównanie ({compareIds.length}/3)</p><div className="mt-3 grid gap-2 md:grid-cols-3">{compareIds.map(id=>{const item=traps.find(t=>t.id===id);return item?<article key={id} className="rounded-xl bg-black/20 p-3"><strong>{item.title}</strong><p className="mt-2 text-xs text-white/60">Zbroja: {item.armor_types.join(", ")||"—"}</p><p className="text-xs text-white/60">Puller: {item.puller?"Tak":"Nie"} · Totemy: {item.totems?"Tak":"Nie"}</p><p className="text-xs text-white/60">Feather Falling: {item.feather_falling?"Tak":"Nie"}</p><p className="text-xs text-white/60">Serwery: {item.servers.join(", ")||"—"}</p></article>:null;})}</div></div><div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
           {visible.map(trap=><article key={trap.id} className="rounded-2xl border border-white/10 bg-white/5 p-5"><div className="mb-3 flex items-center justify-between"><span className="rounded-full bg-purple-500/20 px-3 py-1 text-xs text-purple-200">{trap.collection}</span><span className="text-xs text-white/50">{trap.trap_type}</span></div><h2 className="text-xl font-bold">{trap.title}</h2><p className="mt-2 line-clamp-3 text-sm text-white/65">{trap.summary||trap.description}</p><div className="mt-4 flex flex-wrap gap-2 text-xs text-white/60">{trap.armor_types.map(a=><span key={a} className="rounded bg-white/10 px-2 py-1">{a}</span>)}{trap.puller&&<span className="rounded bg-white/10 px-2 py-1">Puller</span>}{trap.totems&&<span className="rounded bg-white/10 px-2 py-1">Totemy</span>}{trap.feather_falling&&<span className="rounded bg-white/10 px-2 py-1">Feather Falling</span>}</div><div className="mt-5 flex gap-2"><button onClick={()=>void openTrap(trap)} className="flex-1 rounded-xl bg-purple-600 px-4 py-2 font-bold">Szczegóły</button><button onClick={()=>toggleCompare(trap.id)} className="rounded-xl border border-white/15 px-3 py-2 text-xs">{compareIds.includes(trap.id)?"Usuń porównanie":"Porównaj"}</button></div></article>)}
           {!visible.length&&<p className="rounded-xl border border-dashed border-white/20 p-8 text-center text-white/50 md:col-span-2 lg:col-span-3">Brak trapów spełniających kryteria. Po wdrożeniu migracji dodaj pierwszy wpis.</p>}
         </div></>}
