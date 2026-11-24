@@ -48,6 +48,13 @@ export default function CommunityPage() {
   }
   // eslint-disable-next-line react-hooks/set-state-in-effect
   useEffect(() => { void refresh(); }, []);
+  useEffect(() => {
+    if (!isCreator) return;
+    const timer = window.setInterval(() => {
+      void db.rpc("tm_creator_chat_history",{p_limit:100}).then(({data})=>setChat((data??[]) as ChatMessage[]));
+    },5000);
+    return () => window.clearInterval(timer);
+  },[db,isCreator]);
 
   async function submit(event: FormEvent, kind: string) {
     event.preventDefault(); setBusy(true); setMessage("");
