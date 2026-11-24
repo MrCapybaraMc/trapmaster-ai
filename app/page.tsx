@@ -1680,6 +1680,12 @@ export default function Home() {
               >
                 Biblioteka trapów · BETA
               </Link>
+              <Link
+                href="/proposals"
+                className="rounded-xl border border-white/20 bg-black/40 px-5 py-3 text-sm font-bold text-white/80 transition hover:border-violet-300/50"
+              >
+                Propozycje społeczności
+              </Link>
             </div>
 
             {/* FORUM */}
