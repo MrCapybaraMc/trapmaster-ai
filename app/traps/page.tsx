@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useState, type FormEvent } from "react";
 
 type Trap = {
   id: string;
@@ -109,7 +109,7 @@ export default function TrapsPage() {
       && (type === "Wszystkie" || trap.type === type);
   }), [traps, search, mode, armor, puller, totems, feather, type]);
 
-  function addTrap(event: React.FormEvent<HTMLFormElement>) {
+  function addTrap(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     if (!form.name.trim()) return;
     const next: Trap = {
