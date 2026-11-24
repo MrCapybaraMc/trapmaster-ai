@@ -4,7 +4,7 @@ import { FormEvent, useEffect, useState } from "react";
 import { createClient } from "@/lib/supabase/client";
 
 type Staff = {user_id:string;email:string;role:string;granted_at:string};
-type Row = {id:string;title?:string;name?:string;description?:string;starts_at?:string;created_at:string;status?:string;contact_email?:string;applicant_type?:string};
+type Row = {id:string;title?:string;name?:string;description?:string;reason?:string;starts_at?:string;created_at:string;status?:string;contact_email?:string;applicant_type?:string};
 export default function UpdateAdminPage(){
  const [db]=useState(()=>typeof window==="undefined"?null as unknown as ReturnType<typeof createClient>:createClient());
  const [roles,setRoles]=useState<string[]>([]);
@@ -40,7 +40,7 @@ export default function UpdateAdminPage(){
   if(store){setRecipient(store.minecraft_payment_recipient??"");setPrices(JSON.stringify(store.package_prices??{},null,2));}
  }
  useEffect(()=>{void load();},[]);
- async function run(action:()=>Promise<{error:{message:string}|null}>){
+ async function run(action:()=>PromiseLike<{error:{message:string}|null}>){
   setBusy(true);const result=await action();setBusy(false);setMessage(result.error?.message??"Zapisano.");if(!result.error)await load();
  }
  async function roleAction(e:FormEvent,grant:boolean){
