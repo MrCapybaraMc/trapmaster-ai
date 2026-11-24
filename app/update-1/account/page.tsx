@@ -4,7 +4,8 @@ import { useEffect, useState } from "react";
 import { createClient } from "@/lib/supabase/client";
 
 type Order={id:string;package_type:string;status:string;expires_at:string|null;created_at:string;recipient_minecraft_nick?:string|null;is_gift?:boolean};
-type Trap={id:string;title:string};\ntype TrapJoinRow={traps:Trap|null};
+type Trap={id:string;title:string};
+type TrapJoinRow={traps:Trap|null};
 export default function UpdateAccountPage(){
  const [db]=useState(()=>typeof window==="undefined"?null as unknown as ReturnType<typeof createClient>:createClient());
  const [nickname,setNickname]=useState("");
@@ -26,11 +27,12 @@ export default function UpdateAccountPage(){
    db.from("tm_user_settings").select("uses_puller").eq("user_id",auth.user.id).maybeSingle()
   ]);
   setNickname(profile?.nickname??"");setOrders((o??[]) as Order[]);
-  setFavorites(((f??[] as TrapJoinRow[]).map(x=>x.traps).filter((x):x is Trap=>Boolean(x))));
-  setDownloads(((d??[] as TrapJoinRow[]).map(x=>x.traps).filter((x):x is Trap=>Boolean(x))));
+  setFavorites((((f??[]) as TrapJoinRow[]).map(x=>x.traps).filter((x):x is Trap=>Boolean(x))));
+  setDownloads((((d??[]) as TrapJoinRow[]).map(x=>x.traps).filter((x):x is Trap=>Boolean(x))));
   setBalance(p?.balance??0);setUsesPuller(s?.uses_puller??false);
  }
- // eslint-disable-next-line react-hooks/set-state-in-effect\n useEffect(()=>{void load();},[]);
+ // eslint-disable-next-line react-hooks/set-state-in-effect
+ useEffect(()=>{void load();},[]);
  async function savePuller(next:boolean){
   setBusy(true);setUsesPuller(next);
   const {data:auth}=await db.auth.getUser();
