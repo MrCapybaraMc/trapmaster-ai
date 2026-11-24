@@ -12,13 +12,15 @@ export default function UpdateOneLayout({children}:{children:ReactNode}){
  const [dismissed,setDismissed]=useState(false);
  const [language,setLanguage]=useState("pl");
  const [activePackage,setActivePackage]=useState<PackageItem|null>(null);
+ // eslint-disable-next-line react-hooks/set-state-in-effect
  useEffect(()=>{
   let active=true;
   async function load(){
    const {data:auth}=await db.auth.getUser();
    const [{data:events},{data:settings},{data:orders}]=await Promise.all([
     db.from("tm_events").select("id,title,description,starts_at").eq("active",true).order("starts_at",{ascending:true}).limit(10),
-    auth.user?db.from("tm_user_settings").select("language").eq("user_id",auth.user.id).maybeSingle():Promise.resolve({data:null})
+    auth.user?db.from("tm_user_settings").select("language").eq("user_id",auth.user.id).maybeSingle():Promise.resolve({data:null}),
+    auth.user?db.from("orders").select("package_type,expires_at,created_at").eq("user_id",auth.user.id).eq("status","approved").order("created_at",{ascending:false}).limit(10):Promise.resolve({data:[] as PackageItem[]})
    ]);
    if(!active)return;
    if(settings?.language)setLanguage(settings.language);
