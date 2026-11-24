@@ -19,13 +19,7 @@ Deno.serve(async (request: Request) => {
     auth: { persistSession: false, autoRefreshToken: false },
   });
 
-  const { data: events, error } = await supabase
-    .from("tm_discord_outbox")
-    .select("id,event_type,payload,attempts")
-    .is("delivered_at", null)
-    .lt("attempts", 8)
-    .order("created_at", { ascending: true })
-    .limit(20);
+  const { data: events, error } = await supabase.rpc("tm_claim_discord_outbox", { p_limit: 20 });
 
   if (error) return Response.json({ error: error.message }, { status: 500 });
 
@@ -45,12 +39,14 @@ Deno.serve(async (request: Request) => {
         delivered_at: new Date().toISOString(),
         attempts: event.attempts + 1,
         last_error: null,
+        locked_at: null,
       }).eq("id", event.id);
       delivered += 1;
     } else {
       await supabase.from("tm_discord_outbox").update({
         attempts: event.attempts + 1,
         last_error: "Discord webhook returned " + response.status,
+        locked_at: null,
       }).eq("id", event.id);
     }
   }
