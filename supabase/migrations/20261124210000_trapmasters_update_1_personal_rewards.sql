@@ -77,7 +77,7 @@ begin
  if not public.tm_has_role(array['admin','headadmin','owner']) then raise exception 'Brak uprawnień.'; end if;
  if p_decision not in ('approved','rejected','manual_review') then raise exception 'Nieprawidłowa decyzja.'; end if;
  select * into item from public.tm_youtube_reward_submissions where id=p_submission_id for update;
- if not found or item.status<>'pending' then raise exception 'Nie znaleziono oczekującego zgłoszenia.'; end if;
+ if not found or item.status not in ('pending','manual_review') then raise exception 'Nie znaleziono oczekującego zgłoszenia.'; end if;
  if p_decision<>'approved' then
   update public.tm_youtube_reward_submissions set status=p_decision,reviewed_by=auth.uid(),reviewed_at=now() where id=p_submission_id;
   return jsonb_build_object('success',true,'status',p_decision);
