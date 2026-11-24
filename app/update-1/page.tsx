@@ -152,9 +152,12 @@ export default function UpdateOnePage() {
   }
 
   async function reportTrap(trapId: string) {
-    const details = window.prompt("Co jest nieaktualne lub nie działa?");
+    const categoryInput = window.prompt("Co jest nieaktualne? Wpisz: schematic, video, instructions lub other", "other");
+    if (!categoryInput) return;
+    const category = ["schematic","video","instructions","other"].includes(categoryInput.trim().toLowerCase()) ? categoryInput.trim().toLowerCase() : "other";
+    const details = window.prompt("Opisz problem:");
     if (!details?.trim()) return;
-    const { error } = await supabase.from("trap_bug_reports").insert({ trap_id: trapId, user_id: userId, category: "other", details });
+    const { error } = await supabase.from("trap_bug_reports").insert({ trap_id: trapId, user_id: userId, category, details });
     setMessage(error ? error.message : "Zgłoszenie wysłane.");
   }
 
