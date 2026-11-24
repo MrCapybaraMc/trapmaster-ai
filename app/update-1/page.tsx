@@ -59,6 +59,12 @@ export default function UpdateOnePage() {
   // eslint-disable-next-line react-hooks/set-state-in-effect
   useEffect(() => { void load(); }, [load]);
 
+  useEffect(() => {
+    if (!userId || !search.trim()) return;
+    const timer = window.setTimeout(() => { void supabase.from("tm_search_events").insert({ user_id:userId, search_term:search.trim() }); }, 800);
+    return () => window.clearTimeout(timer);
+  }, [search,userId,supabase]);
+
   const visible = useMemo(() => traps.filter((trap) => {
     if (trap.collection !== tab) return false;
     if (tab === "backup" && trap.puller) return false;
