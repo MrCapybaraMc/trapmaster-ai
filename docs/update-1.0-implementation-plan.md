@@ -73,6 +73,9 @@ Added on `feature/trapmasters-update-1.0`:
 - Trap proposals, site proposals, creator chat, collaboration applications, notification records and Discord outbox worker source.
 - Daily point transfer RPC with 80% cap and two-day cooldown, achievements tables, account page, package countdown, gift-order RPC and SuperCombo redemption.
 - Opinions page, YouTube reward review and recipient-bound discount codes.
+- Configurable checkout with additive coupon stacking, usage limits, package prices, payment recipient, optional minimum donation, gift orders and no-self-approval guard.
+- Public partner directory, announcements banner, beta visit/page-view metrics, paid-user leaderboards, staff activity chart, and account security audit/reset-email controls.
+- Achievement-triggered Daily Points rewards, first-use review reminders, admin reply notifications, and a secret-protected Discord outbox worker.
 - Events, partnerships, announcements, tracked links and redirect route.
 - TrapCreator directory/profile editing and owner profile upsert RPC.
 - Beta-only build/lint workflow trigger.
@@ -82,10 +85,17 @@ Not yet complete or not yet verified:
 - CI build/lint has been running and earlier runs failed. Latest successful build is not yet confirmed.
 - No separate Vercel preview is deployed.
 - Daily/traps/library video assets requested by name are missing; see `docs/update-1.0-assets.md`.
-- Complete Polish/English translation is not implemented across all legacy and new UI.
+- Complete Polish/English translation is not implemented across all legacy and new UI; only the preference, HTML language attribute and shared navigation/countdown labels currently switch.
 - Admin active-time metrics, accurate time-spent leaderboard, full public leaderboards, and all analytics aggregation remain incomplete.
 - YouTube proof currently accepts a URL, not a direct screenshot upload; human review is implemented, automated AI verification is not.
 - Discord worker source is present but requires deployment and server-side secrets before messages can be delivered.
-- Account lock/unlock and force-reset controls still require a secure server-side Auth Admin workflow; passwords are never readable.
-- Existing checkout/payment provider, donation surcharge, coupon limits, package expiry, and recipient gift approval require integration tests against the isolated beta database.
+- Owner can send a Supabase password-recovery email and review lock/unlock audit events; enforcing a mandatory reset at next login still requires a secure Auth Admin workflow. Passwords are never readable.
+- Existing checkout/payment provider and the new donation, coupon, package expiry, and recipient gift approval flows require integration tests against the isolated beta database.
 - Opinions background media and Owner profile image need supplied assets.
+
+
+## Verification notes
+- GitHub Actions has completed successful Next.js production builds for the beta branch.
+- The targeted ESLint step for `app/update-1` and the tracked redirect route has passed.
+- The full-repository lint command still contains pre-existing legacy lint debt; the workflow reports it as a non-blocking baseline step so beta-specific lint and production builds remain visible separately.
+- SQL migrations have been reviewed in code but have not been executed against a beta or production database. Database migration syntax/RLS behavior still needs validation on an isolated beta Supabase project.
