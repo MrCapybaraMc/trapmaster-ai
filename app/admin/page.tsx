@@ -92,6 +92,7 @@ export default function AdminPage() {
   const [newCodePackage, setNewCodePackage] = useState("day");
   const [newCodePercent, setNewCodePercent] = useState("10");
   const [newCodeHours, setNewCodeHours] = useState("");
+  const [newCodeMaxUses, setNewCodeMaxUses] = useState("");
 
   const loadOrders = useCallback(async () => {
     if (!supabase) return;
@@ -177,12 +178,13 @@ export default function AdminPage() {
     const code = newCode.trim().toUpperCase();
     const percent = Number(newCodePercent);
     const hours = newCodeHours.trim() === "" ? null : Number(newCodeHours);
-    if (!/^[A-Z0-9_-]{3,40}$/.test(code) || !Number.isInteger(percent) || percent < 1 || percent > 100 || (hours !== null && (!Number.isFinite(hours) || hours <= 0 || hours > 87600))) { setMessage("Sprawdź kod, procent i liczbę godzin."); return; }
+    const maxUses = newCodeMaxUses.trim() === "" ? null : Number(newCodeMaxUses);
+    if (!/^[A-Z0-9_-]{3,40}$/.test(code) || !Number.isInteger(percent) || percent < 1 || percent > 100 || (hours !== null && (!Number.isFinite(hours) || hours <= 0 || hours > 87600)) || (maxUses !== null && (!Number.isSafeInteger(maxUses) || maxUses < 1 || maxUses > 1000000))) { setMessage("Sprawdź kod, procent i liczbę godzin."); return; }
     setBusyId("new-discount");
     const expiresAt = hours === null ? null : new Date(Date.now() + hours * 3600000).toISOString();
-    const { error } = await supabase.from("discount_codes").insert({ code, package_type: newCodePackage, discount_percent: percent, expires_at: expiresAt, created_by: (await supabase.auth.getUser()).data.user?.id });
+    const { error } = await supabase.from("discount_codes").insert({ code, package_type: newCodePackage, discount_percent: percent, expires_at: expiresAt, max_uses: maxUses, created_by: (await supabase.auth.getUser()).data.user?.id });
     setMessage(error ? error.message : "Kod rabatowy został utworzony.");
-    if (!error) { setNewCode(""); setNewCodeHours(""); await loadDiscountCodes(); }
+    if (!error) { setNewCode(""); setNewCodeHours(""); setNewCodeMaxUses(""); await loadDiscountCodes(); }
     setBusyId("");
   }
 
@@ -450,10 +452,11 @@ export default function AdminPage() {
                     <select value={newCodePackage} onChange={(e) => setNewCodePackage(e.target.value)} className="rounded-xl bg-black/40 p-3 text-white"><option value="day">Dzienny</option><option value="week">Tygodniowy</option><option value="month">Miesięczny</option><option value="forever">Dożywotni</option></select>
                     <input type="number" min="1" max="100" value={newCodePercent} onChange={(e) => setNewCodePercent(e.target.value)} placeholder="Procent zniżki" className="rounded-xl bg-black/40 p-3 text-white" />
                     <input type="number" min="1" step="1" value={newCodeHours} onChange={(e) => setNewCodeHours(e.target.value)} placeholder="Ważność w godzinach (puste = zawsze)" className="rounded-xl bg-black/40 p-3 text-white" />
+                    <input type="number" min="1" step="1" value={newCodeMaxUses} onChange={(e) => setNewCodeMaxUses(e.target.value)} placeholder="Limit użyć (puste = bez limitu)" className="rounded-xl bg-black/40 p-3 text-white" />
                   </div>
                   <button onClick={createDiscountCode} disabled={busyId === "new-discount"} className="mt-3 rounded-xl bg-green-500 px-5 py-3 font-bold text-black disabled:opacity-50">Utwórz kod</button>
                   <h4 className="mb-3 mt-6 font-bold">Aktywne kody</h4>
-                  <div className="space-y-2">{discountCodes.filter((c) => c.active && (!c.expires_at || new Date(c.expires_at) > new Date())).map((c) => <div key={c.code} className="flex flex-wrap items-center justify-between gap-3 rounded-xl bg-black/30 p-3"><div><p className="font-black">{c.code} · {c.discount_percent}%</p><p className="text-xs text-gray-300">Pakiet: {c.package_type} · {c.expires_at ? "Wygasa: " + new Date(c.expires_at).toLocaleString("pl-PL") : "Bezterminowy"}</p></div><button onClick={() => disableDiscountCode(c.code)} disabled={busyId === c.code} className="rounded-lg bg-red-600 px-4 py-2 font-bold">Wyłącz</button></div>)}</div>
+                  <div className="space-y-2">{discountCodes.filter((c) => c.active && (!c.expires_at || new Date(c.expires_at) > new Date())).map((c) => <div key={c.code} className="flex flex-wrap items-center justify-between gap-3 rounded-xl bg-black/30 p-3"><div><p className="font-black">{c.code} · {c.discount_percent}%</p><p className="text-xs text-gray-300">Pakiet: {c.package_type} · Użycia: {c.use_count ?? 0}/{c.max_uses ?? "∞"} · {c.expires_at ? "Wygasa: " + new Date(c.expires_at).toLocaleString("pl-PL") : "Bezterminowy"}</p></div><button onClick={() => disableDiscountCode(c.code)} disabled={busyId === c.code} className="rounded-lg bg-red-600 px-4 py-2 font-bold">Wyłącz</button></div>)}</div>
                 </div>}
                 {(isOwner || userRole === "headadmin") && <div className="mb-6 rounded-xl border border-cyan-400/30 bg-cyan-400/10 p-5">
                   <h3 className="mb-3 text-lg font-black">Rangi administracji</h3>
