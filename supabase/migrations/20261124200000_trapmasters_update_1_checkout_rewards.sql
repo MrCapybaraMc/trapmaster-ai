@@ -142,11 +142,11 @@ begin
    prefix:='SC'||upper(substr(replace(gen_random_uuid()::text,'-',''),1,8));
    codes:=array[prefix||'D',prefix||'W',prefix||'M',prefix||'F'];
    expiry:=coalesce(c.expires_at,now()+interval '30 days');
-   insert into public.discount_codes(code,package_type,discount_percent,expires_at,active,created_by)
-   values(codes[1],'day',amount::integer,expiry,true,auth.uid()),
-         (codes[2],'week',amount::integer,expiry,true,auth.uid()),
-         (codes[3],'month',amount::integer,expiry,true,auth.uid()),
-         (codes[4],'forever',amount::integer,expiry,true,auth.uid());
+   insert into public.discount_codes(code,package_type,discount_percent,expires_at,active,created_by,assigned_user_id)
+   values(codes[1],'day',amount::integer,expiry,true,auth.uid(),auth.uid()),
+         (codes[2],'week',amount::integer,expiry,true,auth.uid(),auth.uid()),
+         (codes[3],'month',amount::integer,expiry,true,auth.uid(),auth.uid()),
+         (codes[4],'forever',amount::integer,expiry,true,auth.uid(),auth.uid());
   else
    raise exception 'Nieznany typ nagrody SuperCombo: %',reward_type;
   end if;
