@@ -20,37 +20,37 @@
 
 ## Delivery phases
 
-### Phase 0 — isolate and map (in progress)
+### Phase 0 — isolate and map (baseline complete; validation ongoing)
 - Create this feature branch from `beta.09`.
 - Inventory routes, components, migrations, existing RLS policies and RPC functions.
 - Identify all current role and access checks before changing authorization.
 
-### Phase 1 — trap catalog foundation
+### Phase 1 — trap catalog foundation (schema and first UI pass added; review, RLS and full acceptance testing still required)
 - Design normalized trap records, media/schematic metadata, filter attributes and creator ownership.
 - Add reviews, favorites, recently viewed, comparisons and bug reports.
 - Add server-enforced permissions: TrapCreators can create/edit their own records but cannot delete; Admin/HeadAdmin/Owner can moderate according to role hierarchy.
 - Ensure trap cards and detail view share the same record and never duplicate entries.
 - Keep backups as a separate collection and enforce Puller restrictions server-side.
 
-### Phase 2 — role and profile foundation
+### Phase 2 — role and profile foundation (multi-role RPCs and creator profile directory added; migration validation still required)
 - Support multiple roles per account without downgrading existing Owner/Admin permissions.
 - Add TrapCreator profiles and profile moderation.
 - Keep all role grants/revocations in server-validated RPCs or server routes; never trust client-supplied role names.
 
-### Phase 3 — proposals, reports and creator chat
+### Phase 3 — proposals, reports and creator chat (initial forms, chat, notifications and moderation workflows added; end-to-end testing pending)
 - Trap proposals, website feature proposals, bug reports and notifications.
 - TrapCreators-only group chat with server-side access checks and history.
 
-### Phase 4 — Daily, account and package experience
+### Phase 4 — Daily, account and package experience (initial points transfer, package countdown, gift-order and SuperCombo flows added; checkout integration testing pending)
 - Daily points, transfer limits and immutable transfer history.
 - Achievements, favorites, recent activity and package countdowns.
 - Preserve existing order and payment logic unless explicitly migrated and tested.
 
-### Phase 5 — Owner/HeadAdmin administration
+### Phase 5 — Owner/HeadAdmin administration (initial admin UI, roles, store settings, events, partnerships, collaboration, tracked links and Discord outbox added; full permissions and stats validation pending)
 - Events, partnerships, collaboration applications, tracked links, discount/SuperCombo configuration and administration statistics.
 - Passwords remain unreadable; provide secure reset, lock/unlock and audit controls instead.
 
-### Phase 6 — localization, accessibility and verification
+### Phase 6 — localization, accessibility and verification (not complete; CI currently reports existing lint failures and beta changes are still being corrected)
 - Complete Polish/English coverage for every new UI state, form, notification and error.
 - Verify responsive behavior, loading/empty/error states, authorization boundaries and RLS.
 - Run lint/build and review migration SQL before preview deployment.
@@ -63,3 +63,29 @@
 - Role hierarchy and ownership rules are covered by tests.
 - No secret, password hash, service-role key or webhook secret is exposed to the browser.
 - User reviews the preview and explicitly approves any production release.
+
+
+## Current beta implementation snapshot (2026-11-24)
+
+Added on `feature/trapmasters-update-1.0`:
+- Multi-role schema and owner/headadmin role-management RPCs.
+- Trap catalogue, library/backup collections, trap filters, extra-video metadata, creator editing, staff moderation, reviews, favorites, views, downloads, comparisons and bug reports.
+- Trap proposals, site proposals, creator chat, collaboration applications, notification records and Discord outbox worker source.
+- Daily point transfer RPC with 80% cap and two-day cooldown, achievements tables, account page, package countdown, gift-order RPC and SuperCombo redemption.
+- Opinions page, YouTube reward review and recipient-bound discount codes.
+- Events, partnerships, announcements, tracked links and redirect route.
+- TrapCreator directory/profile editing and owner profile upsert RPC.
+- Beta-only build/lint workflow trigger.
+
+Not yet complete or not yet verified:
+- No migrations have been applied to any Supabase database; do not apply them to production.
+- CI build/lint has been running and earlier runs failed. Latest successful build is not yet confirmed.
+- No separate Vercel preview is deployed.
+- Daily/traps/library video assets requested by name are missing; see `docs/update-1.0-assets.md`.
+- Complete Polish/English translation is not implemented across all legacy and new UI.
+- Admin active-time metrics, accurate time-spent leaderboard, full public leaderboards, and all analytics aggregation remain incomplete.
+- YouTube proof currently accepts a URL, not a direct screenshot upload; human review is implemented, automated AI verification is not.
+- Discord worker source is present but requires deployment and server-side secrets before messages can be delivered.
+- Account lock/unlock and force-reset controls still require a secure server-side Auth Admin workflow; passwords are never readable.
+- Existing checkout/payment provider, donation surcharge, coupon limits, package expiry, and recipient gift approval require integration tests against the isolated beta database.
+- Opinions background media and Owner profile image need supplied assets.
