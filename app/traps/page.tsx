@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState, type FormEvent } from "react";
+import Link from "next/link";
 import { createClient } from "../../lib/supabase/client";
 
 type Trap = {
@@ -16,6 +17,7 @@ type Trap = {
   videoUrl: string;
   schematicUrl: string;
   instructions: string;
+  extraVideoUrl?: string;
 };
 
 const STORAGE_KEY = "trapmasters_beta_traps_v1";
@@ -95,12 +97,12 @@ export default function TrapsPage() {
       if (error) {
         setDataMessage("Wspólna biblioteka nie jest jeszcze podłączona. Wyświetlam podgląd lokalny.");
       } else {
-        const shared = (data ?? []).map((row: any) => ({
-          id: row.id, name: row.title, gameMode: row.game_mode === "Both" ? "Oba" : row.game_mode,
-          type: row.trap_type, armor: row.armor_types ?? [], puller: row.requires_puller,
-          totems: row.uses_totems, featherFalling: row.requires_feather_falling,
-          description: row.description, videoUrl: row.video_url ?? "", schematicUrl: row.schematic_url ?? "",
-          instructions: row.build_instructions, extraVideoUrl: row.extra_video_url ?? "",
+        const shared = (data ?? []).map((row: Record<string, unknown>) => ({
+          id: String(row.id), name: String(row.title ?? ""), gameMode: row.game_mode === "Both" ? "Oba" : row.game_mode as Trap["gameMode"],
+          type: String(row.trap_type ?? ""), armor: Array.isArray(row.armor_types) ? row.armor_types.map(String) : [], puller: Boolean(row.requires_puller),
+          totems: Boolean(row.uses_totems), featherFalling: Boolean(row.requires_feather_falling),
+          description: String(row.description ?? ""), videoUrl: String(row.video_url ?? ""), schematicUrl: String(row.schematic_url ?? ""),
+          instructions: String(row.build_instructions ?? ""), extraVideoUrl: String(row.extra_video_url ?? ""),
         })) as Trap[];
         setTraps(shared);
         setDataMessage("Połączono ze wspólną biblioteką TrapMasters.");
@@ -167,7 +169,7 @@ export default function TrapsPage() {
       <div className="pointer-events-none fixed inset-0 bg-[radial-gradient(ellipse_at_top,_rgba(124,58,237,0.18),_transparent_55%)]" />
       <div className="relative mx-auto max-w-7xl px-4 py-8 sm:px-6 lg:px-8">
         <header className="mb-8 flex flex-wrap items-center justify-between gap-4">
-          <a href="/" className="text-sm font-bold text-white/60 transition hover:text-white">← Wróć na TRAPMASTERS</a>
+          <Link href="/" className="text-sm font-bold text-white/60 transition hover:text-white">← Wróć na TRAPMASTERS</Link>
           <span className="rounded-full border border-amber-300/30 bg-amber-300/10 px-3 py-1 text-xs font-bold text-amber-200">BETA PREVIEW • UPDATE 1.0</span>
         </header>
 
