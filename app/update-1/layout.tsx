@@ -32,7 +32,7 @@ export default function UpdateOneLayout({children}:{children:ReactNode}){
     db.from("tm_announcements").select("id,title,body,created_at").eq("active",true).order("created_at",{ascending:false}).limit(1)
    ]);
    if(!active)return;
-   if(settings?.language)setLanguage(settings.language);
+   if(settings?.language){setLanguage(settings.language);document.documentElement.lang=settings.language;}
    const currentPackage=((orders??[]) as PackageItem[]).find(p=>(p.is_gift?p.recipient_user_id===auth.user?.id:p.user_id===auth.user?.id)&&(p.expires_at===null||new Date(p.expires_at).getTime()>Date.now()))??null;
    setActivePackage(currentPackage);setAnnouncement(((announcements??[]) as Announcement[])[0]??null);
    const list=(events??[]) as EventItem[];
