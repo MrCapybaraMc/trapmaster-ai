@@ -12,7 +12,9 @@ type Trap = {
   created_by: string; published: boolean;
 };
 
-const emptyTrap = {
+type TrapForm = { title:string; summary:string; description:string; video_url:string; extra_video_url:string; schematic_url:string; instructions:string; armor_types:string[]; puller:boolean; totems:boolean; feather_falling:boolean; servers:string[]; trap_type:string; collection:Trap["collection"] };
+
+const emptyTrap: TrapForm = {
   title: "", summary: "", description: "", video_url: "", extra_video_url: "", schematic_url: "",
   instructions: "", armor_types: [] as string[], puller: false, totems: false,
   feather_falling: false, servers: [] as string[], trap_type: "standard",
@@ -29,7 +31,7 @@ export default function UpdateOnePage() {
   const [puller, setPuller] = useState("all");
   const [totems, setTotems] = useState("all");
   const [feather, setFeather] = useState("all");
-  const [form, setForm] = useState(emptyTrap);
+  const [form, setForm] = useState<TrapForm>(emptyTrap);
   const [showForm, setShowForm] = useState(false);
   const [message, setMessage] = useState("");
   const [busy, setBusy] = useState(false);
