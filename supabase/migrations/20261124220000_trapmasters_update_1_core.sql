@@ -29,12 +29,12 @@ language sql
 stable
 security definer
 set search_path = ''
-as $
+as $function$
   select auth.uid() is not null and exists (
     select 1 from public.admin_users a
     where a.user_id = (select auth.uid()) and a.role in ('headadmin', 'owner')
   );
-$;
+$function$;
 
 create table if not exists public.traps (
   id uuid primary key default gen_random_uuid(),
@@ -132,7 +132,7 @@ drop policy if exists "Owner and HeadAdmin manage account roles" on public.accou
 create policy "Owner and HeadAdmin manage account roles" on public.account_roles
   for all to authenticated
   using (public.can_manage_account_roles())
-  with check (exists (select 1 from public.admin_users a where a.user_id = auth.uid() and a.role in ('headadmin', 'owner')));
+  with check (public.can_manage_account_roles());
 
 -- Public read access is intentional for the trap catalogue.
 drop policy if exists "Anyone can read traps" on public.traps;
