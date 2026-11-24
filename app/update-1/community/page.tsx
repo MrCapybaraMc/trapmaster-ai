@@ -49,6 +49,13 @@ export default function CommunityPage() {
   // eslint-disable-next-line react-hooks/set-state-in-effect
   useEffect(() => { void refresh(); }, []);
   useEffect(() => {
+    if (!userId) return;
+    const timer = window.setInterval(() => {
+      void db.from("tm_notifications").select("*").order("created_at",{ascending:false}).limit(50).then(({data})=>setNotices((data??[]) as Notice[]));
+    },15000);
+    return () => window.clearInterval(timer);
+  },[db,userId]);
+  useEffect(() => {
     if (!isCreator) return;
     const timer = window.setInterval(() => {
       void db.rpc("tm_creator_chat_history",{p_limit:100}).then(({data})=>setChat((data??[]) as ChatMessage[]));
