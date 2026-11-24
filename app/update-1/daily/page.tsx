@@ -4,7 +4,7 @@ import { FormEvent, useEffect, useState } from "react";
 import { createClient } from "@/lib/supabase/client";
 
 type Transfer = { id:string; sender_id:string; recipient_id:string; amount:number; created_at:string };
-type Achievement = { achievement_id:string; earned_at:string };
+type Achievement = { achievement_id:string; earned_at:string; tm_achievements?:{title:string;description:string;points:number}|null };
 
 export default function DailyPage() {
  const [db]=useState(()=>typeof window==="undefined"?null as unknown as ReturnType<typeof createClient>:createClient());
@@ -24,7 +24,7 @@ export default function DailyPage() {
   const [{data:points},{data:history},{data:earned},{data:settings}] = await Promise.all([
    db.from("daily_points").select("balance").eq("user_id",auth.user.id).maybeSingle(),
    db.from("daily_point_transfers").select("*").or(`sender_id.eq.${auth.user.id},recipient_id.eq.${auth.user.id}`).order("created_at",{ascending:false}).limit(30),
-   db.from("user_achievements").select("achievement_id,earned_at").eq("user_id",auth.user.id),
+   db.from("user_achievements").select("achievement_id,earned_at,tm_achievements(title,description,points)").eq("user_id",auth.user.id),
    db.from("tm_user_settings").select("videos_muted").eq("user_id",auth.user.id).maybeSingle()
   ]);
   setBalance(points?.balance??0);setTransfers((history??[]) as Transfer[]);setAchievements((earned??[]) as Achievement[]);
@@ -52,6 +52,7 @@ export default function DailyPage() {
    {message&&<p role="status" className="mb-4 rounded-xl bg-white/10 p-3">{message}</p>}
    <section className="mb-6 grid gap-4 sm:grid-cols-3"><article className="rounded-2xl border border-emerald-400/20 bg-black/40 p-5"><p className="text-sm text-white/60">Twoje Daily Points</p><p className="mt-2 text-4xl font-black text-emerald-300">{balance.toLocaleString("pl-PL")}</p></article><article className="rounded-2xl border border-white/10 bg-black/40 p-5"><p className="text-sm text-white/60">Odznaki</p><p className="mt-2 text-4xl font-black">{achievements.length}</p></article><article className="rounded-2xl border border-white/10 bg-black/40 p-5"><p className="text-sm text-white/60">Historia przelewów</p><p className="mt-2 text-4xl font-black">{transfers.length}</p></article></section>
    <form onSubmit={transfer} className="mb-6 grid gap-3 rounded-2xl border border-white/10 bg-black/40 p-6"><h2 className="text-xl font-bold">Przelej punkty</h2><p className="text-sm text-white/60">Możesz przesyłać maksymalnie 80% obecnego salda. Kolejny przelew po 2 dniach.</p><input className={field} required placeholder="Nick konta odbiorcy" value={nickname} onChange={e=>setNickname(e.target.value)}/><input className={field} required type="number" min="1" step="1" value={amount} onChange={e=>setAmount(e.target.value)}/><button disabled={busy||!userId} className="rounded-xl bg-emerald-600 px-5 py-3 font-bold disabled:opacity-50">{busy?"Wysyłanie…":"Wyślij punkty"}</button></form>
+   <section className="mb-6 rounded-2xl border border-white/10 bg-black/40 p-6"><h2 className="mb-4 text-xl font-bold">Osiągnięcia</h2><div className="grid gap-2 sm:grid-cols-2">{achievements.map(item=><article key={item.achievement_id} className="rounded-xl bg-white/5 p-3"><strong>{item.tm_achievements?.title??item.achievement_id}</strong><p className="mt-1 text-sm text-white/60">{item.tm_achievements?.description}</p><p className="mt-2 text-xs text-emerald-200">+{item.tm_achievements?.points??0} pkt</p></article>)}</div>{!achievements.length&&<p className="text-sm text-white/50">Zdobądź pierwsze osiągnięcie, pobierając schemat lub oceniając trap.</p>}</section>
    <section className="rounded-2xl border border-white/10 bg-black/40 p-6"><h2 className="mb-4 text-xl font-bold">Historia przelewów</h2><div className="space-y-2">{transfers.map(t=><article key={t.id} className="flex flex-wrap justify-between gap-2 rounded-xl bg-white/5 p-3"><span>{t.sender_id===userId?"Wysłano":"Otrzymano"}</span><strong className={t.sender_id===userId?"text-red-300":"text-emerald-300"}>{t.sender_id===userId?"−":"+"}{t.amount} pkt</strong><time className="text-xs text-white/40">{new Date(t.created_at).toLocaleString("pl-PL")}</time></article>)}{!transfers.length&&<p className="text-white/50">Brak przelewów.</p>}</div></section>
   </div>
  </main>;
