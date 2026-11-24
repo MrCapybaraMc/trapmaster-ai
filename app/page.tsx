@@ -1674,6 +1674,12 @@ export default function Home() {
                   {item.label}
                 </button>
               ))}
+              <Link
+                href="/traps"
+                className="rounded-xl border border-amber-300/40 bg-amber-400/10 px-5 py-3 text-sm font-bold text-amber-100 transition hover:bg-amber-400/20"
+              >
+                Biblioteka trapów · BETA
+              </Link>
             </div>
 
             {/* FORUM */}
