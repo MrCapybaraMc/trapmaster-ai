@@ -107,7 +107,6 @@ export default function CommunityPage() {
   }
 
   const field = "w-full rounded-xl border border-white/10 bg-black/30 px-4 py-3 text-white";
-  const isCreator = roles.includes("trapcreator") || roles.includes("owner");
   return <main className="min-h-screen bg-[#080812] px-4 py-8 text-white sm:px-8"><div className="mx-auto max-w-5xl">
     <header className="mb-8"><p className="text-xs font-bold tracking-[.3em] text-purple-300">TRAPMASTERS · COMMUNITY</p><h1 className="mt-2 text-4xl font-black">Społeczność</h1><p className="mt-2 text-white/60">Propozycje, współpraca, wiadomości i powiadomienia.</p></header>
     {message&&<p role="status" className="mb-4 rounded-xl bg-white/10 p-3">{message}</p>}
