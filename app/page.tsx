@@ -1686,6 +1686,9 @@ export default function Home() {
               >
                 Propozycje społeczności
               </Link>
+              <Link href="/daily" className="rounded-xl border border-white/20 bg-black/40 px-5 py-3 text-sm font-bold text-white/80">Daily</Link>
+              <Link href="/creator-chat" className="rounded-xl border border-white/20 bg-black/40 px-5 py-3 text-sm font-bold text-white/80">Czat TrapCreators</Link>
+              <Link href="/community" className="rounded-xl border border-white/20 bg-black/40 px-5 py-3 text-sm font-bold text-white/80">Wydarzenia i partnerstwa</Link>
             </div>
 
             {/* FORUM */}
