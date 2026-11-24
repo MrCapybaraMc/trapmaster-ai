@@ -19,7 +19,7 @@ const emptyTrap = {
 };
 
 export default function UpdateOnePage() {
-  const [supabase] = useState(() => createClient());
+  const [supabase] = useState(() => typeof window === "undefined" ? null as unknown as ReturnType<typeof createClient> : createClient());
   const [traps, setTraps] = useState<Trap[]>([]);
   const [selected, setSelected] = useState<Trap | null>(null);
   const [tab, setTab] = useState<"traps" | "library" | "backup">("traps");
@@ -95,7 +95,7 @@ export default function UpdateOnePage() {
       <div className="mx-auto max-w-6xl">
         <header className="mb-8 flex flex-wrap items-center justify-between gap-4">
           <div><p className="text-xs font-bold tracking-[.3em] text-purple-300">TRAPMASTERS · BETA</p><h1 className="mt-2 text-4xl font-black">Katalog trapów</h1><p className="mt-2 text-white/60">Wersja robocza Update 1.0 — osobna strona testowa.</p></div>
-          <a href="/" className="rounded-xl border border-white/15 px-4 py-2">Powrót</a>
+          <nav className="flex flex-wrap gap-2"><a href="/update-1/daily" className="rounded-xl border border-white/15 px-3 py-2 text-sm">Daily</a><a href="/update-1/community" className="rounded-xl border border-white/15 px-3 py-2 text-sm">Społeczność</a><a href="/update-1/account" className="rounded-xl border border-white/15 px-3 py-2 text-sm">Konto</a><a href="/update-1/admin" className="rounded-xl border border-white/15 px-3 py-2 text-sm">Panel</a><a href="/" className="rounded-xl border border-white/15 px-3 py-2 text-sm">Powrót</a></nav>
         </header>
         <nav className="mb-5 flex flex-wrap gap-2">
           {(["traps","library","backup"] as const).map((item) => <button key={item} onClick={() => { setTab(item); setSelected(null); }} className={`rounded-xl px-4 py-2 text-sm font-bold ${tab===item?"bg-purple-600":"bg-white/10"}`}>{item==="traps"?"Trapy":item==="library"?"Biblioteka":"Backupy"}</button>)}
