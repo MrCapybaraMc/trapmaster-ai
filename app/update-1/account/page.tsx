@@ -6,7 +6,7 @@ import Link from "next/link";
 
 type Order={id:string;package_type:string;status:string;expires_at:string|null;created_at:string;recipient_minecraft_nick?:string|null;recipient_user_id?:string|null;user_id?:string;is_gift?:boolean};
 type Trap={id:string;title:string};
-type TrapJoinRow={traps:Trap|null};
+type TrapJoinRow={traps:Trap[]|Trap|null};
 export default function UpdateAccountPage(){
  const [db]=useState(()=>typeof window==="undefined"?null as unknown as ReturnType<typeof createClient>:createClient());
  const [nickname,setNickname]=useState("");
@@ -33,9 +33,9 @@ export default function UpdateAccountPage(){
    db.from("tm_user_settings").select("uses_puller").eq("user_id",auth.user.id).maybeSingle()
   ]);
   setUserId(auth.user.id);setNickname(profile?.nickname??"");setOrders((o??[]) as Order[]);
-  setFavorites((((f??[]) as TrapJoinRow[]).map(x=>x.traps).filter((x):x is Trap=>Boolean(x))));
-  setDownloads((((d??[]) as TrapJoinRow[]).map(x=>x.traps).filter((x):x is Trap=>Boolean(x))));
-  setRecent((((recentViews??[]) as TrapJoinRow[]).map(x=>x.traps).filter((x):x is Trap=>Boolean(x))));
+  setFavorites((((f??[]) as TrapJoinRow[]).map(x=>Array.isArray(x.traps)?x.traps[0]??null:x.traps).filter((x):x is Trap=>Boolean(x))));
+  setDownloads((((d??[]) as TrapJoinRow[]).map(x=>Array.isArray(x.traps)?x.traps[0]??null:x.traps).filter((x):x is Trap=>Boolean(x))));
+  setRecent((((recentViews??[]) as TrapJoinRow[]).map(x=>Array.isArray(x.traps)?x.traps[0]??null:x.traps).filter((x):x is Trap=>Boolean(x))));
   setBalance(p?.balance??0);setUsesPuller(s?.uses_puller??false);
  }
  // eslint-disable-next-line react-hooks/set-state-in-effect
