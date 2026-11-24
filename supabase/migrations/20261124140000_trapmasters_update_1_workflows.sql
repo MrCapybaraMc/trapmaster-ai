@@ -49,7 +49,7 @@ begin
  select (package_prices->>p_package_type)::numeric into price from public.tm_store_settings where id=true;
  if price is null or price<=0 then raise exception 'Cena tego pakietu nie jest skonfigurowana.'; end if;
  insert into public.orders(user_id,minecraft_nick,package_type,price_m,status,recipient_user_id,recipient_minecraft_nick,buyer_message,is_gift)
- values(auth.uid(),trim(p_recipient_nick),p_package_type,price,'pending',recipient,trim(coalesce(p_message,'')),trim(coalesce(p_message,'')),true)
+ values(auth.uid(),trim(p_recipient_nick),p_package_type,price,'pending',recipient,trim(p_recipient_nick),trim(coalesce(p_message,'')),true)
  returning id into order_id;
  return jsonb_build_object('success',true,'order_id',order_id,'price',price,'recipient_nick',trim(p_recipient_nick));
 end;
