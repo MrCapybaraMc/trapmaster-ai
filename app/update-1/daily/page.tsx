@@ -45,7 +45,7 @@ export default function DailyPage() {
  }
  const field="rounded-xl border border-white/10 bg-black/30 px-4 py-3 text-white";
  return <main className="relative min-h-screen overflow-hidden bg-[#080812] px-4 py-8 text-white sm:px-8">
-  <video className="fixed inset-0 h-full w-full object-cover opacity-25" src="/videos/daily.mp4" autoPlay loop muted={muted} playsInline/>
+  <video className="fixed inset-0 h-full w-full object-cover opacity-25" src="/videos/trap.mp4" autoPlay loop muted={muted} playsInline/>
   <div className="pointer-events-none fixed inset-0 bg-[#080812]/70"/>
   <div className="relative mx-auto max-w-5xl">
    <header className="mb-8 flex flex-wrap items-center justify-between gap-4"><div><p className="text-xs font-bold tracking-[.3em] text-emerald-300">TRAPMASTERS · DAILY</p><h1 className="mt-2 text-4xl font-black">Daily</h1><p className="mt-2 text-white/60">Punkty, osiągnięcia i historia przelewów.</p></div><button onClick={()=>void saveMute(!muted)} className="rounded-xl border border-white/15 px-4 py-2">{muted?"Włącz dźwięk":"Wycisz film"}</button></header>
