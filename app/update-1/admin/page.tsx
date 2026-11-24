@@ -39,6 +39,7 @@ export default function UpdateAdminPage(){
   setStaff((s??[]) as Staff[]);setStats((overview??{}) as Record<string,number>);setEvents((e??[]) as Row[]);setPartners((p??[]) as Row[]);setApplications((a??[]) as Row[]);
   if(store){setRecipient(store.minecraft_payment_recipient??"");setPrices(JSON.stringify(store.package_prices??{},null,2));}
  }
+ // eslint-disable-next-line react-hooks/set-state-in-effect
  useEffect(()=>{void load();},[]);
  async function run(action:()=>PromiseLike<{error:{message:string}|null}>){
   setBusy(true);const result=await action();setBusy(false);setMessage(result.error?.message??"Zapisano.");if(!result.error)await load();
