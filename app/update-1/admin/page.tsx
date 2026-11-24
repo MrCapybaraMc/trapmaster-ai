@@ -6,7 +6,7 @@ import { createClient } from "@/lib/supabase/client";
 type Staff = {user_id:string;email:string;role:string;granted_at:string};
 type Row = {id:string;title?:string;name?:string;description?:string;starts_at?:string;created_at:string;status?:string;contact_email?:string;applicant_type?:string};
 export default function UpdateAdminPage(){
- const [db]=useState(()=>createClient());
+ const [db]=useState(()=>typeof window==="undefined"?null as unknown as ReturnType<typeof createClient>:createClient());
  const [roles,setRoles]=useState<string[]>([]);
  const [tab,setTab]=useState("overview");
  const [staff,setStaff]=useState<Staff[]>([]);
