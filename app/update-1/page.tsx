@@ -67,7 +67,6 @@ export default function UpdateOnePage() {
 
   const visible = useMemo(() => traps.filter((trap) => {
     if (tab === "backup" ? trap.collection !== "backup" : trap.collection === "backup") return false;
-    if (tab === "backup" && trap.puller) return false;
     if (search && !`${trap.title} ${trap.summary} ${trap.description}`.toLowerCase().includes(search.toLowerCase())) return false;
     if (armor !== "all" && !trap.armor_types.includes(armor)) return false;
     if (puller !== "all" && trap.puller !== (puller === "yes")) return false;
