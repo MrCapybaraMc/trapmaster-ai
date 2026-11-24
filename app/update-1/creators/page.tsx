@@ -3,8 +3,7 @@
 import { FormEvent, useEffect, useState } from "react";
 import { createClient } from "@/lib/supabase/client";
 
-type Creator={id:string;user_id:string;minecraft_username:string|null;bio:string;socials:Record<string,string>;avatar_url:string|null};
-type Profile={user_id:string;nickname:string};
+type Creator={id:string;user_id:string;account_nick:string|null;minecraft_username:string|null;bio:string;socials:Record<string,string>;avatar_url:string|null;created_at:string};
 export default function CreatorsPage(){
  const [db]=useState(()=>typeof window==="undefined"?null as unknown as ReturnType<typeof createClient>:createClient());
  const [owner,setOwner]=useState(false);const [creator,setCreator]=useState(false);
@@ -17,11 +16,10 @@ export default function CreatorsPage(){
   const [{data:o},{data:c},{data:list}]=await Promise.all([
    db.rpc("tm_has_role",{p_roles:["owner"]}),
    db.rpc("tm_has_role",{p_roles:["trapcreator"]}),
-   db.from("creator_profiles").select("*").order("created_at",{ascending:false})
+   db.rpc("tm_creator_directory")
   ]);
   setOwner(o===true);setCreator(c===true);const creators=(list??[]) as Creator[];setItems(creators);
-  const ids=creators.map(x=>x.user_id);
-  if(ids.length){const {data:profiles}=await db.from("profiles").select("user_id,nickname").in("user_id",ids);setNames(Object.fromEntries(((profiles??[]) as Profile[]).map(p=>[p.user_id,p.nickname])));}
+  setNames(Object.fromEntries(creators.map(p=>[p.user_id,p.account_nick??"TrapCreator"])));
   const mine=creators.find(x=>x.user_id===auth.user.id);if(mine){setSelected(mine);setMcNick(mine.minecraft_username??"");setBio(mine.bio??"");setDiscord(mine.socials?.discord??"");setYoutube(mine.socials?.youtube??"");setOther(mine.socials?.other??"");}
  }
  // eslint-disable-next-line react-hooks/set-state-in-effect
