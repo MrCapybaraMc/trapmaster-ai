@@ -28,11 +28,21 @@ Deno.serve(async (request: Request) => {
     const content = "**TrapMasters / " + event.event_type + "**\n" +
       JSON.stringify(event.payload).slice(0, 1500);
 
-    const response = await fetch(webhookUrl, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ content }),
-    });
+    let response: Response;
+    try {
+      response = await fetch(webhookUrl, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ content, allowed_mentions: { parse: [] } }),
+      });
+    } catch (error) {
+      await supabase.from("tm_discord_outbox").update({
+        attempts: event.attempts + 1,
+        last_error: error instanceof Error ? error.message.slice(0,500) : "Network error",
+        locked_at: null,
+      }).eq("id", event.id);
+      continue;
+    }
 
     if (response.ok) {
       await supabase.from("tm_discord_outbox").update({
