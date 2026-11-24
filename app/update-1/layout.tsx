@@ -6,7 +6,7 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 
 type EventItem={id:string;title:string;description:string;starts_at:string};
-type PackageItem={package_type:string;expires_at:string|null;created_at:string};
+type PackageItem={package_type:string;expires_at:string|null;created_at:string;user_id:string;recipient_user_id:string|null;is_gift:boolean};
 export default function UpdateOneLayout({children}:{children:ReactNode}){
  const pathname=usePathname();
  const [db]=useState(()=>typeof window==="undefined"?null as unknown as ReturnType<typeof createClient>:createClient());
@@ -23,11 +23,11 @@ export default function UpdateOneLayout({children}:{children:ReactNode}){
    const [{data:events},{data:settings},{data:orders}]=await Promise.all([
     db.from("tm_events").select("id,title,description,starts_at").eq("active",true).order("starts_at",{ascending:true}).limit(10),
     auth.user?db.from("tm_user_settings").select("language").eq("user_id",auth.user.id).maybeSingle():Promise.resolve({data:null}),
-    auth.user?db.from("orders").select("package_type,expires_at,created_at").eq("user_id",auth.user.id).eq("status","approved").order("created_at",{ascending:false}).limit(10):Promise.resolve({data:[] as PackageItem[]})
+    auth.user?db.from("orders").select("package_type,expires_at,created_at,user_id,recipient_user_id,is_gift").or(`user_id.eq.${auth.user.id},recipient_user_id.eq.${auth.user.id}`).eq("status","approved").order("created_at",{ascending:false}).limit(10):Promise.resolve({data:[] as PackageItem[]})
    ]);
    if(!active)return;
    if(settings?.language)setLanguage(settings.language);
-   const currentPackage=((orders??[]) as PackageItem[]).find(p=>p.expires_at===null||new Date(p.expires_at).getTime()>Date.now())??null;
+   const currentPackage=((orders??[]) as PackageItem[]).find(p=>(p.is_gift?p.recipient_user_id===auth.user?.id:p.user_id===auth.user?.id)&&(p.expires_at===null||new Date(p.expires_at).getTime()>Date.now()))??null;
    setActivePackage(currentPackage);
    const list=(events??[]) as EventItem[];
    if(auth.user&&list.length){
