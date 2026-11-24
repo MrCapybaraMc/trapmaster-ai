@@ -1,6 +1,6 @@
 "use client";
 
-import { ReactNode, useEffect, useState } from "react";
+import { ReactNode, useEffect, useRef, useState } from "react";
 import { createClient } from "@/lib/supabase/client";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
@@ -15,11 +15,14 @@ export default function UpdateOneLayout({children}:{children:ReactNode}){
  const [dismissed,setDismissed]=useState(false);
  const [language,setLanguage]=useState("pl");
  const [activePackage,setActivePackage]=useState<PackageItem|null>(null);
+ const sessionKey=useRef<string|null>(null);
  // eslint-disable-next-line react-hooks/set-state-in-effect
  useEffect(()=>{
   let active=true;
   async function load(){
    const {data:auth}=await db.auth.getUser();
+   if(auth.user){await db.from("tm_page_views").insert({user_id:auth.user.id,page_path:pathname});}
+   else {sessionKey.current=sessionKey.current??crypto.randomUUID();await db.from("tm_page_views").insert({session_key:sessionKey.current,page_path:pathname});}
    const [{data:events},{data:settings},{data:orders}]=await Promise.all([
     db.from("tm_events").select("id,title,description,starts_at").eq("active",true).order("starts_at",{ascending:true}).limit(10),
     auth.user?db.from("tm_user_settings").select("language").eq("user_id",auth.user.id).maybeSingle():Promise.resolve({data:null}),
@@ -39,7 +42,12 @@ export default function UpdateOneLayout({children}:{children:ReactNode}){
   void load();
   const tick=window.setInterval(()=>setNow(Date.now()),1000);
   return ()=>{active=false;window.clearInterval(tick);};
- },[db]);
+ },[db,pathname]);
+ // eslint-disable-next-line react-hooks/set-state-in-effect
+ useEffect(()=>{
+  const timer=window.setInterval(()=>{if(document.visibilityState==="visible"){void db.rpc("tm_log_active_time",{p_seconds:60,p_page_path:pathname});}},60000);
+  return ()=>window.clearInterval(timer);
+ },[db,pathname]);
  async function dismiss(){
   if(!event)return;
   const {data:auth}=await db.auth.getUser();
