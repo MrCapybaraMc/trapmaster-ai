@@ -2,7 +2,7 @@ name: Build and lint checks
 
 on:
   push:
-    branches: [beta-08-implementation, beta.09]
+    branches: [beta-08-implementation, beta.09, feature/trapmasters-update-1.0]
   pull_request:
     branches: [main]
     types: [opened, synchronize, reopened, ready_for_review]
