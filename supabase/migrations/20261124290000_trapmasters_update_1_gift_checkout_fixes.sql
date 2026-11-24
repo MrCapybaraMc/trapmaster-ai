@@ -7,7 +7,8 @@ declare recipient uuid; price numeric(10,2); order_id uuid; has_paid_package boo
 begin
  if auth.uid() is null then raise exception 'Musisz się zalogować.'; end if;
  select exists(select 1 from public.orders where user_id=auth.uid() and coalesce(is_gift,false)=false
-   and status='approved' and (expires_at is null or expires_at>now())) into has_paid_package;
+   and status='approved' and (expires_at is null or expires_at>now())
+   and not exists(select 1 from public.access_revocations r where r.user_id=auth.uid())) into has_paid_package;
  if not has_paid_package then raise exception 'Aktywny zakupiony pakiet na Twoim koncie jest wymagany, aby kupić pakiet dla innego konta.'; end if;
  select user_id into recipient from public.profiles
  where lower(trim(nickname))=lower(trim(coalesce(p_recipient_nick,''))) limit 1;
