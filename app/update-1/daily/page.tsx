@@ -30,6 +30,7 @@ export default function DailyPage() {
   setBalance(points?.balance??0);setTransfers((history??[]) as Transfer[]);setAchievements((earned??[]) as Achievement[]);
   setMuted(settings?.videos_muted??true);
  }
+ // eslint-disable-next-line react-hooks/set-state-in-effect
  useEffect(()=>{void load();},[]);
  async function transfer(e:FormEvent){
   e.preventDefault();const parsed=Number(amount);
