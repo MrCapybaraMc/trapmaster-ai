@@ -7,7 +7,7 @@ type Transfer = { id:string; sender_id:string; recipient_id:string; amount:numbe
 type Achievement = { achievement_id:string; earned_at:string };
 
 export default function DailyPage() {
- const [db]=useState(()=>createClient());
+ const [db]=useState(()=>typeof window==="undefined"?null as unknown as ReturnType<typeof createClient>:createClient());
  const [balance,setBalance]=useState(0);
  const [transfers,setTransfers]=useState<Transfer[]>([]);
  const [achievements,setAchievements]=useState<Achievement[]>([]);
