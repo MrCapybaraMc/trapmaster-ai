@@ -4,22 +4,26 @@ import { ReactNode, useEffect, useState } from "react";
 import { createClient } from "@/lib/supabase/client";
 
 type EventItem={id:string;title:string;description:string;starts_at:string};
+type PackageItem={package_type:string;expires_at:string|null;created_at:string};
 export default function UpdateOneLayout({children}:{children:ReactNode}){
  const [db]=useState(()=>typeof window==="undefined"?null as unknown as ReturnType<typeof createClient>:createClient());
  const [event,setEvent]=useState<EventItem|null>(null);
  const [now,setNow]=useState(0);
  const [dismissed,setDismissed]=useState(false);
  const [language,setLanguage]=useState("pl");
+ const [activePackage,setActivePackage]=useState<PackageItem|null>(null);
  useEffect(()=>{
   let active=true;
   async function load(){
    const {data:auth}=await db.auth.getUser();
-   const [{data:events},{data:settings}]=await Promise.all([
+   const [{data:events},{data:settings},{data:orders}]=await Promise.all([
     db.from("tm_events").select("id,title,description,starts_at").eq("active",true).order("starts_at",{ascending:true}).limit(10),
     auth.user?db.from("tm_user_settings").select("language").eq("user_id",auth.user.id).maybeSingle():Promise.resolve({data:null})
    ]);
    if(!active)return;
    if(settings?.language)setLanguage(settings.language);
+   const currentPackage=((orders??[]) as PackageItem[]).find(p=>p.expires_at===null||new Date(p.expires_at).getTime()>Date.now())??null;
+   setActivePackage(currentPackage);
    const list=(events??[]) as EventItem[];
    if(auth.user&&list.length){
     const {data:closed}=await db.from("tm_event_dismissals").select("event_id").eq("user_id",auth.user.id).in("event_id",list.map(x=>x.id));
@@ -46,6 +50,7 @@ export default function UpdateOneLayout({children}:{children:ReactNode}){
  const remaining=event?new Date(event.starts_at).getTime()-now:0;
  const countdown=remaining<=0?"Wydarzenie rozpoczęte":`${Math.floor(remaining/86400000)}d ${Math.floor(remaining%86400000/3600000)}h ${Math.floor(remaining%3600000/60000)}m ${Math.floor(remaining%60000/1000)}s`;
  return <>{event&&!dismissed&&<aside className="sticky top-0 z-50 flex flex-wrap items-center justify-between gap-3 border-b border-purple-300/20 bg-[#24113e] px-4 py-3 text-white"><div><strong>{event.title}</strong><span className="ml-3 text-sm text-purple-100">{countdown}</span>{event.description&&<p className="text-xs text-white/70">{event.description}</p>}</div><button onClick={()=>void dismiss()} aria-label="Ukryj wydarzenie" className="rounded-lg bg-white/10 px-3 py-1">×</button></aside>}
+ {activePackage&&<div className="fixed bottom-4 left-4 z-40 rounded-xl border border-emerald-300/20 bg-black/80 px-3 py-2 text-xs text-emerald-100 backdrop-blur">{activePackage.expires_at?`Pakiet ${activePackage.package_type}: ${Math.max(0,Math.floor((new Date(activePackage.expires_at).getTime()-now)/86400000))} dni do końca`:`Pakiet ${activePackage.package_type}: bezterminowy`}</div>}
  <div className="fixed bottom-4 right-4 z-40 flex items-center gap-1 rounded-xl border border-white/15 bg-black/75 p-1 text-xs text-white backdrop-blur"><button onClick={()=>void changeLanguage("pl")} className={`rounded-lg px-2 py-1 ${language==="pl"?"bg-purple-600":""}`}>PL</button><button onClick={()=>void changeLanguage("en")} className={`rounded-lg px-2 py-1 ${language==="en"?"bg-purple-600":""}`}>EN</button></div>
  {children}</>;
 }
