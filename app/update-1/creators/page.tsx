@@ -12,13 +12,15 @@ export default function CreatorsPage(){
  const [accountNick,setAccountNick]=useState("");const [mcNick,setMcNick]=useState("");const [bio,setBio]=useState("");const [discord,setDiscord]=useState("");const [youtube,setYoutube]=useState("");const [other,setOther]=useState("");
  const [message,setMessage]=useState("");const [busy,setBusy]=useState(false);
  async function load(){
-  const {data:auth}=await db.auth.getUser();if(!auth.user){setMessage("Zaloguj się.");return;}
-  const [{data:o},{data:c},{data:list}]=await Promise.all([
+  const {data:auth}=await db.auth.getUser();
+  const {data:list}=await db.rpc("tm_creator_directory");
+  const creators=(list??[]) as Creator[];setItems(creators);
+  if(!auth.user){setMessage("Zaloguj się, aby edytować profil.");return;}
+  const [{data:o},{data:c}]=await Promise.all([
    db.rpc("tm_has_role",{p_roles:["owner"]}),
-   db.rpc("tm_has_role",{p_roles:["trapcreator"]}),
-   db.rpc("tm_creator_directory")
+   db.rpc("tm_has_role",{p_roles:["trapcreator"]})
   ]);
-  setOwner(o===true);setCreator(c===true);const creators=(list??[]) as Creator[];setItems(creators);
+  setOwner(o===true);setCreator(c===true);
   setNames(Object.fromEntries(creators.map(p=>[p.user_id,p.account_nick??"TrapCreator"])));
   const mine=creators.find(x=>x.user_id===auth.user.id);if(mine){setSelected(mine);setMcNick(mine.minecraft_username??"");setBio(mine.bio??"");setDiscord(mine.socials?.discord??"");setYoutube(mine.socials?.youtube??"");setOther(mine.socials?.other??"");}
  }
