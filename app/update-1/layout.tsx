@@ -7,7 +7,7 @@ type EventItem={id:string;title:string;description:string;starts_at:string};
 export default function UpdateOneLayout({children}:{children:ReactNode}){
  const [db]=useState(()=>typeof window==="undefined"?null as unknown as ReturnType<typeof createClient>:createClient());
  const [event,setEvent]=useState<EventItem|null>(null);
- const [now,setNow]=useState(Date.now());
+ const [now,setNow]=useState(0);
  const [dismissed,setDismissed]=useState(false);
  const [language,setLanguage]=useState("pl");
  useEffect(()=>{
