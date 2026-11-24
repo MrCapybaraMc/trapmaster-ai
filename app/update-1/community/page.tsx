@@ -9,7 +9,7 @@ type Notice = { id: string; title: string; body: string; href: string | null; re
 type Proposal = {id:string;description:string;youtube_url:string|null;status:string;created_at:string};
 
 export default function CommunityPage() {
-  const [db] = useState(() => createClient());
+  const [db] = useState(() => typeof window === "undefined" ? null as unknown as ReturnType<typeof createClient> : createClient());
   const [userId, setUserId] = useState("");
   const [roles, setRoles] = useState<string[]>([]);
   const [tab, setTab] = useState("trap");
@@ -30,6 +30,7 @@ export default function CommunityPage() {
   const [extra, setExtra] = useState("");
   const [message, setMessage] = useState("");
   const [busy, setBusy] = useState(false);
+  const isCreator = roles.includes("trapcreator") || roles.includes("owner");
 
   async function refresh() {
     const { data: auth } = await db.auth.getUser();
