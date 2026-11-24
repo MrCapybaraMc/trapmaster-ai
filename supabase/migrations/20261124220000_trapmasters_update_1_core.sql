@@ -23,6 +23,19 @@ as $$
   );
 $$;
 
+create or replace function public.can_manage_account_roles()
+returns boolean
+language sql
+stable
+security definer
+set search_path = ''
+as $
+  select auth.uid() is not null and exists (
+    select 1 from public.admin_users a
+    where a.user_id = (select auth.uid()) and a.role in ('headadmin', 'owner')
+  );
+$;
+
 create table if not exists public.traps (
   id uuid primary key default gen_random_uuid(),
   title text not null check (char_length(trim(title)) between 2 and 120),
@@ -113,15 +126,12 @@ alter table public.website_proposals enable row level security;
 -- Role grants are private. Only Owner/HeadAdmin may manage TrapCreators and TrapMasters.
 drop policy if exists "Users can read their own account roles" on public.account_roles;
 create policy "Users can read their own account roles" on public.account_roles
-  for select to authenticated using (user_id = auth.uid() or exists (
-    select 1 from public.admin_users a
-    where a.user_id = auth.uid() and a.role in ('headadmin', 'owner')
-  ));
+  for select to authenticated using (user_id = auth.uid() or public.can_manage_account_roles());
 
 drop policy if exists "Owner and HeadAdmin manage account roles" on public.account_roles;
 create policy "Owner and HeadAdmin manage account roles" on public.account_roles
   for all to authenticated
-  using (exists (select 1 from public.admin_users a where a.user_id = auth.uid() and a.role in ('headadmin', 'owner')))
+  using (public.can_manage_account_roles())
   with check (exists (select 1 from public.admin_users a where a.user_id = auth.uid() and a.role in ('headadmin', 'owner')));
 
 -- Public read access is intentional for the trap catalogue.
@@ -205,6 +215,8 @@ create policy "Admins review website proposals" on public.website_proposals
 
 revoke all on function public.has_account_role(text) from public, anon;
 grant execute on function public.has_account_role(text) to authenticated;
+revoke all on function public.can_manage_account_roles() from public, anon;
+grant execute on function public.can_manage_account_roles() to authenticated;
 
 grant select on public.traps, public.trap_reviews to anon, authenticated;
 grant insert, update, delete on public.traps to authenticated;
