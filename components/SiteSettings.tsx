@@ -20,11 +20,12 @@ export default function SiteSettings() {
     const savedLanguage = localStorage.getItem("trapmasters-language");
     const savedSound = localStorage.getItem("trapmasters_music_enabled");
 
-    if (savedLanguage === "pl" || savedLanguage === "en") {
-      setLanguage(savedLanguage);
-    }
-
-    setSound(savedSound === "true");
+    const frame = window.requestAnimationFrame(() => {
+      if (savedLanguage === "pl" || savedLanguage === "en") {
+        setLanguage(savedLanguage);
+      }
+      setSound(savedSound === "true");
+    });
 
     const supabase = createClient();
 
@@ -61,6 +62,7 @@ export default function SiteSettings() {
 
     return () => {
       listener.subscription.unsubscribe();
+      window.cancelAnimationFrame(frame);
       window.removeEventListener("trapmasters-language-change", onLanguage);
       window.removeEventListener("trapmasters-music-change", onSound);
     };

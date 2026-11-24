@@ -30,6 +30,13 @@ type SupportTicket = {
   created_at: string;
 };
 
+type StaffRow = { user_id: string; role: string };
+type ProfileRow = { user_id: string; nickname: string | null };
+type StaffUser = StaffRow & { nickname: string };
+type AccessUser = { user_id: string; display_name: string | null; email: string | null; access_type: string; revoked: boolean; expires_at: string | null };
+type AccountUser = { user_id: string; display_name: string | null; email: string | null; suspended: boolean; suspended_at: string | null };
+type DiscountCode = { code: string; active: boolean; expires_at: string | null; discount_percent: number; package_type: string };
+
 type Application = {
   id: string;
   user_id: string;
@@ -45,31 +52,26 @@ type Application = {
   created_at: string;
 };
 
+function VideoBackground() {
+  return (
+    <>
+      <video
+        autoPlay
+        muted
+        loop
+        playsInline
+        className="fixed inset-0 w-full h-full object-cover -z-20"
+      >
+        <source src="/videos/for.mp4" type="video/mp4" />
+      </video>
+      <div className="fixed inset-0 bg-[#050811]/75 -z-10" />
+    </>
+  );
+}
+
 export default function AdminPage() {
   const [supabase, setSupabase] = useState<ReturnType<typeof createClient> | null>(null);
 
-  useEffect(() => {
-    try {
-      const client = createClient();
-      setSupabase(client);
-      void (async () => {
-        const { data: userData, error: userError } = await client.auth.getUser();
-        if (userError || !userData.user) {
-          setIsOwner(false);
-          return;
-        }
-        const { data: roleData, error: roleError } = await client.from("admin_users").select("role").eq("user_id", userData.user.id).maybeSingle();
-        const role = !roleError ? roleData?.role || "" : "";
-        setUserRole(role);
-        setIsOwner(role === "owner");
-        if (!["admin", "headadmin", "owner"].includes(role)) setMessage("Brak uprawnień do panelu administracyjnego.");
-      })();
-    } catch (error) {
-      console.error("Supabase client initialization failed:", error);
-      setMessage("Brak konfiguracji Supabase. Sprawdź zmienne środowiskowe projektu.");
-      setLoading(false);
-    }
-  }, []);
   const [tab, setTab] = useState<Tab>("owner");
 
   const [orders, setOrders] = useState<Order[]>([]);
@@ -82,16 +84,59 @@ export default function AdminPage() {
   const canManageAccounts = userRole === "owner" || userRole === "headadmin";
   const [busyId, setBusyId] = useState("");
   const [message, setMessage] = useState("");
-  const [stats, setStats] = useState<any>(null);
-  const [accessUsers, setAccessUsers] = useState<any[]>([]);
-  const [accountUsers, setAccountUsers] = useState<any[]>([]);
-  const [discountCodes, setDiscountCodes] = useState<any[]>([]);
-  const [staffUsers, setStaffUsers] = useState<any[]>([]);
+  const [stats, setStats] = useState<Record<string, number | string | null> | null>(null);
+  const [accessUsers, setAccessUsers] = useState<AccessUser[]>([]);
+  const [accountUsers, setAccountUsers] = useState<AccountUser[]>([]);
+  const [discountCodes, setDiscountCodes] = useState<DiscountCode[]>([]);
+  const [staffUsers, setStaffUsers] = useState<StaffUser[]>([]);
   const [adminGrantEmail, setAdminGrantEmail] = useState("");
   const [newCode, setNewCode] = useState("");
   const [newCodePackage, setNewCodePackage] = useState("day");
   const [newCodePercent, setNewCodePercent] = useState("10");
   const [newCodeHours, setNewCodeHours] = useState("");
+
+  useEffect(() => {
+    let active = true;
+    const frame = window.requestAnimationFrame(() => {
+      void (async () => {
+        try {
+          const client = createClient();
+          if (!active) return;
+          setSupabase(client);
+          const { data: userData, error: userError } = await client.auth.getUser();
+          if (!active) return;
+          if (userError || !userData.user) {
+            setIsOwner(false);
+            return;
+          }
+          const { data: roleData, error: roleError } = await client
+            .from("admin_users")
+            .select("role")
+            .eq("user_id", userData.user.id)
+            .maybeSingle();
+          if (!active) return;
+          const role = !roleError ? roleData?.role || "" : "";
+          setUserRole(role);
+          setIsOwner(role === "owner");
+          setTab(role === "owner" || role === "headadmin" ? "owner" : "orders");
+          if (!["admin", "headadmin", "owner"].includes(role)) {
+            setMessage("Brak uprawnień do panelu administracyjnego.");
+          }
+        } catch (error) {
+          console.error("Supabase client initialization failed:", error);
+          if (active) {
+            setMessage("Brak konfiguracji Supabase. Sprawdź zmienne środowiskowe projektu.");
+            setLoading(false);
+          }
+        }
+      })();
+    });
+
+    return () => {
+      active = false;
+      window.cancelAnimationFrame(frame);
+    };
+  }, []);
 
   const loadOrders = useCallback(async () => {
     if (!supabase) return;
@@ -139,9 +184,9 @@ export default function AdminPage() {
     if (!supabase || !["owner", "headadmin"].includes(userRole)) return;
     const { data, error } = await supabase.from("admin_users").select("user_id, role").order("created_at", { ascending: true });
     if (error) { setMessage(error.message); return; }
-    const ids = (data || []).map((row: any) => row.user_id);
-    const { data: profiles } = ids.length ? await supabase.from("profiles").select("user_id, nickname").in("user_id", ids) : { data: [] as any[] };
-    setStaffUsers((data || []).map((row: any) => ({ ...row, nickname: profiles?.find((p: any) => p.user_id === row.user_id)?.nickname || row.user_id })));
+    const ids = (data || []).map((row: StaffRow) => row.user_id);
+    const { data: profiles } = ids.length ? await supabase.from("profiles").select("user_id, nickname").in("user_id", ids) : { data: [] as ProfileRow[] };
+    setStaffUsers((data || []).map((row: StaffRow) => ({ ...row, nickname: profiles?.find((p: ProfileRow) => p.user_id === row.user_id)?.nickname || row.user_id })));
   }, [supabase, userRole]);
 
   async function changeStaffRole(userId: string, role: "admin" | "headadmin") {
@@ -223,7 +268,11 @@ export default function AdminPage() {
   }, [tab, loadOrders, loadTickets, loadApplications, loadStats, loadAccess, loadAccountUsers, loadDiscountCodes, loadStaffUsers]);
 
   useEffect(() => {
-    if (supabase) void refresh();
+    if (!supabase) return;
+    const frame = window.requestAnimationFrame(() => {
+      void refresh();
+    });
+    return () => window.cancelAnimationFrame(frame);
   }, [supabase, refresh]);
 
   async function reviewOrder(orderId: string, decision: string) {
@@ -346,23 +395,6 @@ export default function AdminPage() {
         : "bg-white/10 text-white hover:bg-white/20"
     }`;
 
-  function VideoBackground() {
-    return (
-      <>
-        <video
-          autoPlay
-          muted
-          loop
-          playsInline
-          className="fixed inset-0 w-full h-full object-cover -z-20"
-        >
-          <source src="/videos/for.mp4" type="video/mp4" />
-        </video>
-        <div className="fixed inset-0 bg-[#050811]/75 -z-10" />
-      </>
-    );
-  }
-
   return (
     <main className="relative min-h-screen bg-[#080b12] text-white p-5 md:p-10">
       {(tab === "support" || tab === "recruitment") && (
@@ -435,7 +467,7 @@ export default function AdminPage() {
               </section>
             )}
 
-            {(tab === "accounts" || tab === "owner") && (
+            {(tab === "accounts" || tab === "owner") && (tab !== "owner" || canManageAccounts) && (
               <section className="rounded-2xl border border-white/10 bg-black/40 p-5 md:p-7">
                 <h2 className="mb-2 text-2xl font-bold">Zarządzanie kontami użytkowników</h2>
                 <p className="mb-3 text-sm text-gray-400">Resetowanie haseł jest wyłączone. Owner i HeadAdmin mogą usuwać zwykłe konta; konta administracyjne są chronione.</p>

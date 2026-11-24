@@ -1,5 +1,7 @@
--- Beta-only authorization and entitlement refinements.
--- Do not apply this migration to the shared production Supabase project.
+-- Production-safe authorization and entitlement refinements.
+-- The production project already has public.set_order_access_period() and
+-- set_order_access_period_trigger on public.orders. Keep that established
+-- trigger as the single source of truth for approved/rejected order expiry.
 
 create or replace function public.set_staff_role(p_user_id uuid, p_role text)
 returns boolean
@@ -50,10 +52,10 @@ begin
 end;
 $$;
 
-revoke all on function public.set_staff_role(uuid, text) from public;
+revoke all on function public.set_staff_role(uuid, text) from public, anon;
 grant execute on function public.set_staff_role(uuid, text) to authenticated;
 
--- A confirmed application always grants the applicant the regular Admin role.
+-- A confirmed application grants the regular Admin role.
 -- Existing Owner/HeadAdmin roles are never downgraded.
 create or replace function public.review_admin_application(p_application_id uuid, p_decision text)
 returns jsonb
@@ -102,44 +104,15 @@ begin
 end;
 $$;
 
-revoke all on function public.review_admin_application(uuid, text) from public;
+revoke all on function public.review_admin_application(uuid, text) from public, anon;
 grant execute on function public.review_admin_application(uuid, text) to authenticated;
 
--- The access check already compares orders.expires_at with now().
--- Set the entitlement expiry automatically when an order is approved.
-create or replace function public.set_order_entitlement_expiry()
-returns trigger
-language plpgsql
-set search_path = ''
-as $$
-begin
-  if new.status = 'approved'
-     and (tg_op = 'INSERT' or old.status is distinct from 'approved') then
-    if new.package_type = 'day' then
-      new.expires_at := now() + interval '1 day';
-    elsif new.package_type = 'week' then
-      new.expires_at := now() + interval '7 days';
-    elsif new.package_type = 'month' then
-      new.expires_at := now() + interval '30 days';
-    elsif new.package_type = 'forever' then
-      new.expires_at := null;
-    else
-      raise exception 'Nieprawidłowy typ pakietu.';
-    end if;
-  end if;
-  return new;
-end;
-$$;
+-- No additional orders trigger is created here. The existing production
+-- set_order_access_period_trigger already sets approved_at/expires_at for
+-- approvals and clears them for rejections. A second trigger would duplicate
+-- entitlement lifecycle logic and could cause inconsistent future behavior.
 
-drop trigger if exists orders_set_entitlement_expiry on public.orders;
-create trigger orders_set_entitlement_expiry
-before insert or update of status, package_type
-on public.orders
-for each row
-execute function public.set_order_entitlement_expiry();
-
-
--- Allow Owner/HeadAdmin to grant the regular Admin role directly by account email.
+-- Allow Owner/HeadAdmin to grant the regular Admin role directly by email.
 create or replace function public.grant_admin_by_email(p_email text)
 returns boolean
 language plpgsql
@@ -150,11 +123,15 @@ declare
   v_actor_role text;
   v_user_id uuid;
 begin
+  if auth.uid() is null then
+    raise exception 'Musisz się zalogować.';
+  end if;
+
   select role into v_actor_role
   from public.admin_users
   where user_id = auth.uid();
 
-  if auth.uid() is null or coalesce(v_actor_role, '') not in ('owner', 'headadmin') then
+  if coalesce(v_actor_role, '') not in ('owner', 'headadmin') then
     raise exception 'Tylko Owner lub HeadAdmin może nadawać rangę Admin.';
   end if;
 
@@ -177,5 +154,5 @@ begin
 end;
 $$;
 
-revoke all on function public.grant_admin_by_email(text) from public;
+revoke all on function public.grant_admin_by_email(text) from public, anon;
 grant execute on function public.grant_admin_by_email(text) to authenticated;
