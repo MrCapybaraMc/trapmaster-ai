@@ -45,7 +45,8 @@ export default function UpdateAccountPage(){
  async function savePuller(next:boolean){
   setBusy(true);setUsesPuller(next);
   const {data:auth}=await db.auth.getUser();
-  const {error}=await db.from("tm_user_settings").upsert({user_id:auth.user?.id,uses_puller:next},{onConflict:"user_id"});
+  const {data:current}=await db.from("tm_user_settings").select("language,videos_muted").eq("user_id",auth.user?.id??"").maybeSingle();
+  const {error}=await db.from("tm_user_settings").upsert({user_id:auth.user?.id,uses_puller:next,language:current?.language??"pl",videos_muted:current?.videos_muted??true},{onConflict:"user_id"});
   setBusy(false);setMessage(error?error.message:"Zapisano ustawienia.");
  }
  const active=orders.find(o=>o.status==="approved"&&(o.is_gift?o.recipient_user_id===userId:o.user_id===userId)&&(o.expires_at===null||new Date(o.expires_at)>new Date()));
