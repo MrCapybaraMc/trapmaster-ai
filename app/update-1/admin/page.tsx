@@ -47,7 +47,7 @@ export default function UpdateAdminPage(){
   const [{data:links},{data:hits},{data:yt}]=await Promise.all([
    current.includes("owner")?db.from("tm_tracked_links").select("id,slug,destination_url").order("created_at",{ascending:false}):Promise.resolve({data:[]}),
    current.includes("owner")?db.from("tm_tracked_link_hits").select("link_id"):Promise.resolve({data:[]}),
-   db.from("tm_youtube_reward_submissions").select("id,proof_url,user_id,status,created_at").eq("status","pending").order("created_at",{ascending:false})
+   db.from("tm_youtube_reward_submissions").select("id,proof_url,user_id,status,created_at").in("status",["pending","manual_review"]).order("created_at",{ascending:false})
   ]);
   setTrackedLinks(((links??[]) as Omit<TrackedLink,"clicks">[]).map(link=>({...link,clicks:((hits??[]) as {link_id:string}[]).filter(hit=>hit.link_id===link.id).length})));
   setYoutube((yt??[]) as YoutubeSubmission[]);
