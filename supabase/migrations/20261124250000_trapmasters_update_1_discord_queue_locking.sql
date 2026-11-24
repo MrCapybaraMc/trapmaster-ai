@@ -10,8 +10,8 @@ begin
   select o.id from public.tm_discord_outbox o
   where o.delivered_at is null and o.locked_at is null and o.attempts<8
   order by o.created_at
-  for update skip locked
   limit greatest(1,least(coalesce(p_limit,20),100))
+  for update skip locked
  )
  update public.tm_discord_outbox o set locked_at=now()
  from candidates c where o.id=c.id
