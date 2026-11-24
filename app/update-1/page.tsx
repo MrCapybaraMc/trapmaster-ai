@@ -6,14 +6,14 @@ import { createClient } from "@/lib/supabase/client";
 
 type Trap = {
   id: string; title: string; summary: string; description: string;
-  video_url: string | null; schematic_url: string | null; instructions: string;
+  video_url: string | null; extra_video_url: string | null; schematic_url: string | null; instructions: string;
   armor_types: string[]; puller: boolean; totems: boolean; feather_falling: boolean;
   servers: string[]; trap_type: string; collection: "traps" | "library" | "backup";
   created_by: string; published: boolean;
 };
 
 const emptyTrap = {
-  title: "", summary: "", description: "", video_url: "", schematic_url: "",
+  title: "", summary: "", description: "", video_url: "", extra_video_url: "", schematic_url: "",
   instructions: "", armor_types: [] as string[], puller: false, totems: false,
   feather_falling: false, servers: [] as string[], trap_type: "standard",
   collection: "traps" as const,
@@ -34,6 +34,11 @@ export default function UpdateOnePage() {
   const [message, setMessage] = useState("");
   const [busy, setBusy] = useState(false);
   const [videoMuted, setVideoMuted] = useState(true);
+  const [extraFilter, setExtraFilter] = useState("all");
+  const [trapTypeFilter, setTrapTypeFilter] = useState("all");
+  const [compareIds, setCompareIds] = useState<string[]>([]);
+  const [reviewSummary, setReviewSummary] = useState({ average: 0, count: 0 });
+  const [editingTrap, setEditingTrap] = useState<string | null>(null);
   const [userId, setUserId] = useState("");
 
   const load = useCallback(async () => {
@@ -58,22 +63,44 @@ export default function UpdateOnePage() {
     if (puller !== "all" && trap.puller !== (puller === "yes")) return false;
     if (totems !== "all" && trap.totems !== (totems === "yes")) return false;
     if (feather !== "all" && trap.feather_falling !== (feather === "yes")) return false;
+    if (extraFilter !== "all" && !trap.servers.includes(extraFilter)) return false;
+    if (trapTypeFilter !== "all" && trap.trap_type !== trapTypeFilter) return false;
     return true;
-  }), [traps, tab, search, armor, puller, totems, feather]);
+  }), [traps, tab, search, armor, puller, totems, feather, extraFilter, trapTypeFilter]);
 
   async function saveTrap(event: React.FormEvent) {
     event.preventDefault(); setBusy(true); setMessage("");
-    const payload = { ...form, video_url: form.video_url || null, schematic_url: form.schematic_url || null, created_by: userId, published: true };
-    const { error } = await supabase.from("traps").insert(payload);
+    const payload = { ...form, video_url: form.video_url || null, extra_video_url: form.extra_video_url || null, schematic_url: form.schematic_url || null, updated_by: userId, published: true };
+    const { error } = editingTrap
+      ? await supabase.from("traps").update(payload).eq("id", editingTrap)
+      : await supabase.from("traps").insert({ ...payload, created_by: userId });
     setBusy(false);
     if (error) { setMessage(error.message); return; }
-    setForm(emptyTrap); setShowForm(false); setMessage("Trap dodany."); await load();
+    setForm(emptyTrap); setEditingTrap(null); setShowForm(false); setMessage(editingTrap ? "Trap zaktualizowany." : "Trap dodany."); await load();
   }
 
   async function saveVideoMute(next: boolean) {
     setVideoMuted(next);
     const { error } = await supabase.from("tm_user_settings").upsert({ user_id: userId, videos_muted: next }, { onConflict: "user_id" });
     if (error) setMessage(error.message);
+  }
+
+  async function openTrap(trap: Trap) {
+    setSelected(trap);
+    await supabase.from("trap_views").insert({ user_id: userId, trap_id: trap.id });
+    const { data } = await supabase.from("trap_reviews").select("rating").eq("trap_id", trap.id);
+    const ratings = (data ?? []).map((item: {rating:number}) => item.rating);
+    setReviewSummary({ count: ratings.length, average: ratings.length ? ratings.reduce((a:number,b:number)=>a+b,0)/ratings.length : 0 });
+  }
+
+  function editTrap(trap: Trap) {
+    setEditingTrap(trap.id);
+    setForm({ title:trap.title, summary:trap.summary, description:trap.description, video_url:trap.video_url??"", extra_video_url:trap.extra_video_url??"", schematic_url:trap.schematic_url??"", instructions:trap.instructions, armor_types:trap.armor_types??[], puller:trap.puller, totems:trap.totems, feather_falling:trap.feather_falling, servers:trap.servers??[], trap_type:trap.trap_type, collection:trap.collection });
+    setShowForm(true); setSelected(null);
+  }
+
+  function toggleCompare(trapId: string) {
+    setCompareIds(current => current.includes(trapId) ? current.filter(id=>id!==trapId) : current.length<3 ? [...current,trapId] : current);
   }
 
   async function toggleFavorite(trapId: string) {
@@ -118,6 +145,7 @@ export default function UpdateOnePage() {
           <input className={inputClass} placeholder="Nazwa trapa" required value={form.title} onChange={e=>setForm({...form,title:e.target.value})}/>
           <input className={inputClass} placeholder="Krótki opis" value={form.summary} onChange={e=>setForm({...form,summary:e.target.value})}/>
           <input className={inputClass} placeholder="Link do filmu" value={form.video_url} onChange={e=>setForm({...form,video_url:e.target.value})}/>
+          <input className={inputClass} placeholder="Dodatkowy film instruktażowy" value={form.extra_video_url} onChange={e=>setForm({...form,extra_video_url:e.target.value})}/>
           <input className={inputClass} placeholder="Link do schematu" value={form.schematic_url} onChange={e=>setForm({...form,schematic_url:e.target.value})}/>
           <textarea className={inputClass+" md:col-span-2"} placeholder="Instrukcja budowy" value={form.instructions} onChange={e=>setForm({...form,instructions:e.target.value})}/>
           <textarea className={inputClass+" md:col-span-2"} placeholder="Pełny opis" value={form.description} onChange={e=>setForm({...form,description:e.target.value})}/>
@@ -125,7 +153,8 @@ export default function UpdateOnePage() {
           <select className={inputClass} value={form.trap_type} onChange={e=>setForm({...form,trap_type:e.target.value})}><option value="standard">Standardowy</option><option value="piston">Piston trap</option><option value="railgun">Railgun</option></select>
           <div className="flex flex-wrap gap-4 md:col-span-2">{["Diax zbroja 4/3","Diax bez enchantów","Netherite 4/3","Ametystowa","Szmaragdowa"].map(x=><label key={x} className="flex items-center gap-2 text-sm"><input type="checkbox" checked={form.armor_types.includes(x)} onChange={e=>setForm({...form,armor_types:e.target.checked?[...form.armor_types,x]:form.armor_types.filter(v=>v!==x)})}/>{x}</label>)}</div>
           <div className="flex flex-wrap gap-5 md:col-span-2">{([["puller","Puller"],["totems","Totemy"],["feather_falling","Feather Falling"]] as const).map(([key,label])=><label key={key} className="flex items-center gap-2"><input type="checkbox" checked={form[key]} onChange={e=>setForm({...form,[key]:e.target.checked})}/>{label}</label>)}</div>
-          <button disabled={busy} className="rounded-xl bg-purple-600 px-5 py-3 font-bold disabled:opacity-50">{busy?"Zapisywanie…":"Zapisz trap"}</button>
+          <div className="flex flex-wrap gap-4 md:col-span-2">{["BananaSMP","Hoplite"].map(x=><label key={x} className="flex items-center gap-2"><input type="checkbox" checked={form.servers.includes(x)} onChange={e=>setForm({...form,servers:e.target.checked?[...form.servers,x]:form.servers.filter(v=>v!==x)})}/>{x}</label>)}</div>
+          <button disabled={busy} className="rounded-xl bg-purple-600 px-5 py-3 font-bold disabled:opacity-50">{busy?"Zapisywanie…":editingTrap?"Zapisz zmiany":"Zapisz trap"}</button>
         </form>}
         <section className="mb-5 grid gap-3 rounded-2xl border border-white/10 bg-white/5 p-4 md:grid-cols-5">
           <input className={inputClass} placeholder="Szukaj trapa…" value={search} onChange={e=>setSearch(e.target.value)}/>
@@ -133,17 +162,19 @@ export default function UpdateOnePage() {
           <select className={inputClass} value={puller} onChange={e=>setPuller(e.target.value)}><option value="all">Puller: dowolny</option><option value="yes">Z Pullerem</option><option value="no">Bez Pullera</option></select>
           <select className={inputClass} value={totems} onChange={e=>setTotems(e.target.value)}><option value="all">Totemy: dowolnie</option><option value="yes">Z totemami</option><option value="no">Bez totemów</option></select>
           <select className={inputClass} value={feather} onChange={e=>setFeather(e.target.value)}><option value="all">Feather Falling: dowolnie</option><option value="yes">Z Feather Falling</option><option value="no">Bez Feather Falling</option></select>
+          <select className={inputClass} value={extraFilter} onChange={e=>setExtraFilter(e.target.value)}><option value="all">Serwer: dowolny</option><option value="BananaSMP">BananaSMP</option><option value="Hoplite">Hoplite</option></select>
+          <select className={inputClass} value={trapTypeFilter} onChange={e=>setTrapTypeFilter(e.target.value)}><option value="all">Typ: dowolny</option><option value="piston">Piston trap</option><option value="railgun">Railgun</option></select>
         </section>
         {selected ? <article className="rounded-2xl border border-purple-400/30 bg-white/5 p-6">
-          <button onClick={()=>setSelected(null)} className="mb-4 text-sm text-purple-300">← Wróć do listy</button><h2 className="text-3xl font-black">{selected.title}</h2><p className="mt-2 text-white/70">{selected.summary}</p><p className="mt-4 whitespace-pre-wrap">{selected.description}</p><h3 className="mt-5 font-bold">Instrukcja</h3><p className="mt-2 whitespace-pre-wrap text-white/80">{selected.instructions||"Brak instrukcji."}</p>
-          <div className="mt-5 flex flex-wrap gap-3">{selected.video_url&&<a className="rounded-xl bg-red-600 px-4 py-2" href={selected.video_url} target="_blank" rel="noreferrer">Otwórz film</a>}{selected.schematic_url&&<a className="rounded-xl bg-blue-600 px-4 py-2" href={selected.schematic_url} target="_blank" rel="noreferrer">Pobierz schemat</a>}</div>
+          <button onClick={()=>setSelected(null)} className="mb-4 text-sm text-purple-300">← Wróć do listy</button><h2 className="text-3xl font-black">{selected.title}</h2><p className="mt-2 text-white/70">{selected.summary}</p><p className="mt-4 whitespace-pre-wrap">{selected.description}</p><p className="mt-3 text-sm text-white/60">Średnia ocena: {reviewSummary.average.toFixed(1)}/10 ({reviewSummary.count} ocen)</p><h3 className="mt-5 font-bold">Instrukcja</h3><p className="mt-2 whitespace-pre-wrap text-white/80">{selected.instructions||"Brak instrukcji."}</p>
+          <div className="mt-5 flex flex-wrap gap-3">{selected.video_url&&<a className="rounded-xl bg-red-600 px-4 py-2" href={selected.video_url} target="_blank" rel="noreferrer">Otwórz film</a>}{selected.extra_video_url&&<a className="rounded-xl bg-red-800 px-4 py-2" href={selected.extra_video_url} target="_blank" rel="noreferrer">Dodatkowy film</a>}{selected.schematic_url&&<a className="rounded-xl bg-blue-600 px-4 py-2" href={selected.schematic_url} target="_blank" rel="noreferrer">Pobierz schemat</a>}</div>
           {(!selected.feather_falling&&!selected.totems)&&<p className="mt-5 rounded-xl bg-amber-500/10 p-3 text-amber-200">proszę po wybudowaniu trapa po funnelach 30blokow w dół i dripstone</p>}
           {(selected.feather_falling||selected.totems)&&!selected.puller&&<p className="mt-3 text-sm text-purple-200">Wymagane dodatkowe objaśnienie — dodaj odpowiedni film do instrukcji.</p>}
-          <div className="mt-5 flex flex-wrap gap-2"><button onClick={()=>void toggleFavorite(selected.id)} className="rounded-xl border border-white/20 px-4 py-2">☆ Ulubione</button><button onClick={()=>void addReview(selected.id)} className="rounded-xl border border-white/20 px-4 py-2">Oceń 1–10</button><button onClick={()=>void reportTrap(selected.id)} className="rounded-xl border border-white/20 px-4 py-2">Zgłoś błąd</button></div>
-        </article> : <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-          {visible.map(trap=><article key={trap.id} className="rounded-2xl border border-white/10 bg-white/5 p-5"><div className="mb-3 flex items-center justify-between"><span className="rounded-full bg-purple-500/20 px-3 py-1 text-xs text-purple-200">{trap.collection}</span><span className="text-xs text-white/50">{trap.trap_type}</span></div><h2 className="text-xl font-bold">{trap.title}</h2><p className="mt-2 line-clamp-3 text-sm text-white/65">{trap.summary||trap.description}</p><div className="mt-4 flex flex-wrap gap-2 text-xs text-white/60">{trap.armor_types.map(a=><span key={a} className="rounded bg-white/10 px-2 py-1">{a}</span>)}{trap.puller&&<span className="rounded bg-white/10 px-2 py-1">Puller</span>}{trap.totems&&<span className="rounded bg-white/10 px-2 py-1">Totemy</span>}{trap.feather_falling&&<span className="rounded bg-white/10 px-2 py-1">Feather Falling</span>}</div><button onClick={()=>setSelected(trap)} className="mt-5 w-full rounded-xl bg-purple-600 px-4 py-2 font-bold">Szczegóły</button></article>)}
+          <div className="mt-5 flex flex-wrap gap-2">{selected.created_by===userId&&<button onClick={()=>editTrap(selected)} className="rounded-xl border border-white/20 px-4 py-2">Edytuj mój trap</button>}<button onClick={()=>void toggleFavorite(selected.id)} className="rounded-xl border border-white/20 px-4 py-2">☆ Ulubione</button><button onClick={()=>void addReview(selected.id)} className="rounded-xl border border-white/20 px-4 py-2">Oceń 1–10</button><button onClick={()=>void reportTrap(selected.id)} className="rounded-xl border border-white/20 px-4 py-2">Zgłoś błąd</button></div>
+        </article> : <><div className="mb-4 rounded-2xl border border-white/10 bg-white/5 p-4"><p className="font-bold">Porównanie ({compareIds.length}/3)</p><div className="mt-2 flex flex-wrap gap-3">{compareIds.map(id=>{const item=traps.find(t=>t.id===id);return item?<span key={id} className="rounded-lg bg-white/10 px-3 py-2 text-sm">{item.title}</span>:null;})}</div></div><div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+          {visible.map(trap=><article key={trap.id} className="rounded-2xl border border-white/10 bg-white/5 p-5"><div className="mb-3 flex items-center justify-between"><span className="rounded-full bg-purple-500/20 px-3 py-1 text-xs text-purple-200">{trap.collection}</span><span className="text-xs text-white/50">{trap.trap_type}</span></div><h2 className="text-xl font-bold">{trap.title}</h2><p className="mt-2 line-clamp-3 text-sm text-white/65">{trap.summary||trap.description}</p><div className="mt-4 flex flex-wrap gap-2 text-xs text-white/60">{trap.armor_types.map(a=><span key={a} className="rounded bg-white/10 px-2 py-1">{a}</span>)}{trap.puller&&<span className="rounded bg-white/10 px-2 py-1">Puller</span>}{trap.totems&&<span className="rounded bg-white/10 px-2 py-1">Totemy</span>}{trap.feather_falling&&<span className="rounded bg-white/10 px-2 py-1">Feather Falling</span>}</div><div className="mt-5 flex gap-2"><button onClick={()=>void openTrap(trap)} className="flex-1 rounded-xl bg-purple-600 px-4 py-2 font-bold">Szczegóły</button><button onClick={()=>toggleCompare(trap.id)} className="rounded-xl border border-white/15 px-3 py-2 text-xs">{compareIds.includes(trap.id)?"Usuń porównanie":"Porównaj"}</button></div></article>)}
           {!visible.length&&<p className="rounded-xl border border-dashed border-white/20 p-8 text-center text-white/50 md:col-span-2 lg:col-span-3">Brak trapów spełniających kryteria. Po wdrożeniu migracji dodaj pierwszy wpis.</p>}
-        </div>}
+        </div></>}
       </div>
     </main>
   );
