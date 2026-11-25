@@ -81,15 +81,15 @@ Added on `feature/trapmasters-update-1.0`:
 - Beta-only build/lint workflow trigger.
 
 Not yet complete or not yet verified:
-- No migrations have been applied to any Supabase database; do not apply them to production.
-- CI build/lint has been running and earlier runs failed. Latest successful build is not yet confirmed.
-- No separate Vercel preview is deployed.
-- Daily/traps/library video assets requested by name are missing; see `docs/update-1.0-assets.md`.
+- The isolated beta Supabase project `owzyzfltwronhxbsrccd` has the Update 1.0 schema (56 public tables, RLS enabled) and a recorded beta-only security-definer execution lockdown migration. Migration history before that lockdown was empty because earlier schema work had been applied directly; reconcile the full schema into a clean baseline migration before using automated migration replay. Production Supabase remains untouched.
+- Earlier CI runs included successful Next.js production builds and targeted lint, but every subsequent code change still requires a fresh build and preview verification.
+- Beta preview deployment status must be checked per latest commit; Vercel API access may prevent direct verification.
+- Daily/traps/library video assets requested by name are missing; see `docs/update-1.0-assets.md`. The existing `ender-bg.mp4` is used as a temporary visual background only.
 - Complete Polish/English translation is not implemented across all legacy and new UI; only the preference, HTML language attribute and shared navigation/countdown labels currently switch.
 - Admin active-time metrics, accurate time-spent leaderboard, full public leaderboards, and all analytics aggregation remain incomplete.
 - YouTube proof currently accepts a URL, not a direct screenshot upload; human review is implemented, automated AI verification is not.
 - Discord worker source is present but requires deployment and server-side secrets before messages can be delivered.
-- Owner can send a Supabase password-recovery email and review lock/unlock audit events; enforcing a mandatory reset at next login still requires a secure Auth Admin workflow. Passwords are never readable.
+- Beta login/register routes now link from the legacy homepage; password reset email flow and recovery-password update UI are implemented. No beta auth users existed at last database check, so a real account sign-in still needs an end-to-end user test. Mandatory reset at next login still requires a secure Auth Admin workflow. Passwords are never readable.
 - Existing checkout/payment provider and the new donation, coupon, package expiry, and recipient gift approval flows require integration tests against the isolated beta database.
 - Opinions background media and Owner profile image need supplied assets.
 
@@ -99,3 +99,4 @@ Not yet complete or not yet verified:
 - The targeted ESLint step for `app/update-1` and the tracked redirect route has passed.
 - The full-repository lint command still contains pre-existing legacy lint debt; the workflow reports it as a non-blocking baseline step so beta-specific lint and production builds remain visible separately.
 - SQL migrations have been reviewed in code but have not been executed against a beta or production database. Database migration syntax/RLS behavior still needs validation on an isolated beta Supabase project.
+\n\n## Latest work (2026-11-25)\n\n- Restored the legacy homepage component on the beta branch and added a link to the Update 1.0 trap library.\n- Added beta login links, password reset flow, and email-confirmation redirect.\n- Added TrapCreator create/edit-own and staff moderation UI gates in the trap catalogue. Database policies still require role-boundary testing.\n- Applied beta-only SECURITY DEFINER execute lockdown: no SECURITY DEFINER routine in `public` remains executable by `anon`; 65 remain executable by `authenticated` and need a routine-by-routine authorization audit. Four RLS-enabled tables intentionally have no direct client policies (`access_revocations`, `daily_access_grants`, `order_reviews`, `tm_discord_outbox`).\n- Latest preview build/runtime not yet confirmed; do not claim all Update 1.0 features are complete.\n
