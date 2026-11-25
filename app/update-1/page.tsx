@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import { createClient } from "@/lib/supabase/client";
 
@@ -37,6 +37,7 @@ export default function UpdateOnePage() {
   const [message, setMessage] = useState("");
   const [busy, setBusy] = useState(false);
   const [videoMuted, setVideoMuted] = useState(true);
+  const backgroundVideoRef = useRef<HTMLVideoElement | null>(null);
   const [extraFilter, setExtraFilter] = useState("all");
   const [trapTypeFilter, setTrapTypeFilter] = useState("all");
   const [compareIds, setCompareIds] = useState<string[]>([]);
@@ -171,10 +172,10 @@ export default function UpdateOnePage() {
   return (
     <main className="min-h-screen bg-[#080812] px-4 py-8 text-white sm:px-8">
       <div className="mx-auto max-w-6xl">
-        <video key={tab} className="fixed inset-0 h-full w-full object-cover opacity-20" src="/videos/trap.mp4" autoPlay loop muted={videoMuted} playsInline />
+        <video ref={backgroundVideoRef} key={tab} className="fixed inset-0 h-full w-full object-cover opacity-20" src="/videos/trap.mp4" autoPlay loop muted={videoMuted} playsInline />
         <header className="relative z-10 mb-8 flex flex-wrap items-center justify-between gap-4">
           <div><p className="text-xs font-bold tracking-[.3em] text-purple-300">TRAPMASTERS · BETA</p><h1 className="mt-2 text-4xl font-black">Katalog trapów</h1><p className="mt-2 text-white/60">Wersja robocza Update 1.0 — osobna strona testowa.</p></div>
-          <button onClick={() => void saveVideoMute(!videoMuted)} className="rounded-xl border border-white/15 px-3 py-2 text-sm">{videoMuted ? "Włącz dźwięk" : "Wycisz film"}</button><nav className="flex flex-wrap gap-2"><Link href="/update-1/daily" className="rounded-xl border border-white/15 px-3 py-2 text-sm">Daily</Link><Link href="/update-1/community" className="rounded-xl border border-white/15 px-3 py-2 text-sm">Społeczność</Link><Link href="/update-1/account" className="rounded-xl border border-white/15 px-3 py-2 text-sm">Konto</Link><Link href="/update-1/admin" className="rounded-xl border border-white/15 px-3 py-2 text-sm">Panel</Link><Link href="/update-1/creators" className="rounded-xl border border-white/15 px-3 py-2 text-sm">Twórcy</Link><Link href="/update-1/opinions" className="rounded-xl border border-white/15 px-3 py-2 text-sm">Opinie</Link><Link href="/" className="rounded-xl border border-white/15 px-3 py-2 text-sm">Powrót</Link></nav>
+          <button onClick={() => { if (videoMuted) { const player = backgroundVideoRef.current; if (player) { player.muted = false; void player.play().catch(() => setMessage("Przeglądarka zablokowała odtwarzanie. Naciśnij ▶ na filmie.")); } void saveVideoMute(false); } else { if (backgroundVideoRef.current) backgroundVideoRef.current.muted = true; void saveVideoMute(true); } }} className="rounded-xl border border-white/15 px-3 py-2 text-sm">{videoMuted ? "Włącz dźwięk" : "Wycisz film"}</button><nav className="flex flex-wrap gap-2"><Link href="/update-1/daily" className="rounded-xl border border-white/15 px-3 py-2 text-sm">Daily</Link><Link href="/update-1/community" className="rounded-xl border border-white/15 px-3 py-2 text-sm">Społeczność</Link><Link href="/update-1/account" className="rounded-xl border border-white/15 px-3 py-2 text-sm">Konto</Link><Link href="/update-1/admin" className="rounded-xl border border-white/15 px-3 py-2 text-sm">Panel</Link><Link href="/update-1/creators" className="rounded-xl border border-white/15 px-3 py-2 text-sm">Twórcy</Link><Link href="/update-1/opinions" className="rounded-xl border border-white/15 px-3 py-2 text-sm">Opinie</Link><Link href="/" className="rounded-xl border border-white/15 px-3 py-2 text-sm">Powrót</Link></nav>
         </header>
         <nav className="mb-5 flex flex-wrap gap-2">
           {(["traps","library","backup"] as const).map((item) => <button key={item} onClick={() => { setTab(item); setSelected(null); }} className={`rounded-xl px-4 py-2 text-sm font-bold ${tab===item?"bg-purple-600":"bg-white/10"}`}>{item==="traps"?"Trapy":item==="library"?"Biblioteka":"Backupy"}</button>)}
