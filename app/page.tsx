@@ -1270,7 +1270,7 @@ export default function Home() {
               </a>
             ) : (
               <a
-                href="/register"
+                href="/login"
                 className="rounded-xl bg-purple-600 px-5 py-3 text-sm font-bold hover:bg-purple-500"
               >
                 {t.login}
@@ -1523,7 +1523,7 @@ export default function Home() {
                   {!loggedIn && (
                     <p className="mt-4 text-sm text-yellow-200">
                       {t.loginRequired}
-                      <a href="/register" className="ml-1 underline">
+                      <a href="/login" className="ml-1 underline">
                         {t.login}
                       </a>
                     </p>
@@ -1826,7 +1826,7 @@ export default function Home() {
                       <button onClick={claimDailyReward} disabled={dailyBusy || profile?.last_daily_claim === new Date().toISOString().slice(0,10)} className="rounded-xl bg-amber-300 px-7 py-4 font-black text-black transition hover:bg-amber-200 disabled:cursor-not-allowed disabled:opacity-40">{profile?.last_daily_claim === new Date().toISOString().slice(0,10) ? "NAGRODA ODEBRANA DZISIAJ" : dailyBusy ? "CHWILA..." : "ODBIERZ DZIENNĄ NAGRODĘ"}</button>
                       <a href="/account" className="rounded-xl border border-white/15 bg-white/5 px-6 py-4 font-bold text-white/80 hover:bg-white/10">Moje konto</a>
                     </div>
-                  </> : <div className="mt-8 rounded-2xl border border-white/10 bg-black/40 p-6"><p className="text-white/80">Zaloguj się, aby zbierać punkty i odbierać nagrody.</p><a href="/register" className="mt-4 inline-block rounded-xl bg-amber-300 px-6 py-3 font-black text-black">ZALOGUJ SIĘ</a></div>}
+                  </> : <div className="mt-8 rounded-2xl border border-white/10 bg-black/40 p-6"><p className="text-white/80">Zaloguj się, aby zbierać punkty i odbierać nagrody.</p><a href="/login" className="mt-4 inline-block rounded-xl bg-amber-300 px-6 py-3 font-black text-black">ZALOGUJ SIĘ</a></div>}
                   {loggedIn && (
                     <section className="mt-9 rounded-2xl border border-purple-300/20 bg-black/40 p-5 md:p-7">
                       <div className="flex flex-wrap items-end justify-between gap-3"><div><p className="text-xs font-black uppercase tracking-[.25em] text-purple-300">PUNKTY</p><h4 className="mt-2 text-2xl font-black">SKLEP NAGRÓD</h4><p className="mt-1 text-sm text-white/55">Wymieniaj punkty na dodatkowy czas dostępu.</p></div><span className="font-bold text-amber-200">{profile?.points ?? 0} pkt</span></div>
@@ -2242,7 +2242,7 @@ export default function Home() {
           </p>
 
           <div className="mt-5 flex flex-wrap justify-center gap-6 text-sm text-white/70">
-            <a href="/register">Konto</a>
+            <a href="/login">Konto</a>
             <a href="https://discord.gg/sJaBPzx36" target="_blank" rel="noreferrer">
               Discord
             </a>
