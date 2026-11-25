@@ -265,8 +265,6 @@ const translations = {
     pending: "Oczekujące",
     accepted: "Zaakceptowane",
     rejected: "Odrzucone",
-    paused: "Strona tymczasowo nieczynna",
-    pausedText: "Aktualnie nie przyjmujemy nowych zamówień. Zapraszamy ponownie później!",
     discord: "DOŁĄCZ NA DISCORDA",
     footer: "Wszelkie prawa zastrzeżone.",
     success: "Wysłano pomyślnie!",
@@ -394,8 +392,6 @@ const translations = {
     pending: "Pending",
     accepted: "Accepted",
     rejected: "Rejected",
-    paused: "Website temporarily unavailable",
-    pausedText: "We are not accepting new orders right now. Please come back later!",
     discord: "JOIN DISCORD",
     footer: "All rights reserved.",
     success: "Sent successfully!",
@@ -448,8 +444,6 @@ export default function Home() {
   const [userRole, setUserRole] = useState<UserRole>("user");
   const [hasTrapperAccess, setHasTrapperAccess] = useState(false);
   const [authLoading, setAuthLoading] = useState(true);
-  const [paused, setPaused] = useState(false);
-  const [settingsLoading, setSettingsLoading] = useState(true);
 
   const [musicEnabled, setMusicEnabled] = useState(false);
   const [language, setLanguage] = useState<Language>("pl");
@@ -637,21 +631,6 @@ export default function Home() {
 
       if (!mounted) return;
 
-      const { data, error } = await supabase
-        .from("site_settings")
-        .select("orders_paused")
-        .eq("id", true)
-        .maybeSingle();
-
-      if (!mounted) return;
-
-      if (error || !data) {
-        setPaused(true);
-      } else {
-        setPaused(!!data.orders_paused);
-      }
-
-      setSettingsLoading(false);
     }
 
     loadData();
