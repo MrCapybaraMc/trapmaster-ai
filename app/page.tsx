@@ -1279,28 +1279,7 @@ export default function Home() {
           </div>
         </header>
 
-        {settingsLoading ? (
-          <div className="flex min-h-[60vh] items-center justify-center">
-            {t.loadingAccess}
-          </div>
-        ) : paused ? (
-          <section className="flex min-h-[75vh] flex-col items-center justify-center px-6 text-center">
-            <div className="max-w-2xl rounded-3xl border border-red-400/40 bg-black/75 p-10 backdrop-blur-sm">
-              <div className="text-5xl">🔧</div>
-              <h1 className="mt-6 text-4xl font-black md:text-5xl">{t.paused}</h1>
-              <p className="mt-5 leading-7 text-white/75">{t.pausedText}</p>
-              <a
-                href="https://discord.gg/sJaBPzx36"
-                target="_blank"
-                rel="noreferrer"
-                className="mt-8 inline-block rounded-xl bg-purple-600 px-8 py-4 font-bold"
-              >
-                {t.discord}
-              </a>
-            </div>
-          </section>
-        ) : (
-          <>
+        <>
             {/* HERO */}
             <section className="mx-auto flex min-h-[650px] max-w-7xl flex-col items-center justify-center px-6 py-24 text-center">
               <div className="mb-6 rounded-full border border-purple-400/50 bg-purple-950/40 px-5 py-2 text-sm text-purple-200">
@@ -1544,7 +1523,7 @@ export default function Home() {
               </section>
             )}
           </>
-        )}
+
 
         {/* TRAPMASTER */}
         <section
