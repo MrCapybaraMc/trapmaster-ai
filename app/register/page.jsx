@@ -25,6 +25,19 @@ export default function RegisterPage({ initialMode = "register" }) {
     return () => data.subscription.unsubscribe();
   }, [supabase]);
 
+  async function sendPasswordReset() {
+    setMessage("");
+    if (!email.trim()) { setMessage("Wpisz e-mail konta, aby wysłać link resetujący."); return; }
+    setLoading(true);
+    try {
+      const { error } = await supabase.auth.resetPasswordForEmail(email.trim(), { redirectTo: `${window.location.origin}/login` });
+      if (error) throw error;
+      setResetSent(true);
+      setMessage("Jeśli konto z tym adresem istnieje, wysłaliśmy link do zmiany hasła. Sprawdź też folder SPAM.");
+    } catch (error) { setMessage(error.message || "Nie udało się wysłać linku."); }
+    finally { setLoading(false); }
+  }
+
   async function handleSubmit(e) {
     e.preventDefault();
     setMessage("");
@@ -98,6 +111,7 @@ export default function RegisterPage({ initialMode = "register" }) {
           </div>}
           <button type="submit" disabled={loading} className="w-full rounded-xl bg-purple-600 p-3 font-bold transition hover:bg-purple-500 disabled:opacity-50">{loading ? "Chwilka..." : mode === "register" ? "Utwórz konto" : "Zaloguj się"}</button>
         </form>
+        {mode === "login" && !recovery && <button type="button" onClick={sendPasswordReset} disabled={loading || resetSent} className="mt-4 text-sm text-purple-300 underline disabled:opacity-50">{resetSent ? "Link resetujący został wysłany" : "Nie pamiętasz hasła? Wyślij link resetujący"}</button>}
         {message && <p role="status" className="mt-4 rounded-xl bg-white/5 p-3 text-sm text-gray-300">{message}</p>}
       </div>
     </main>
