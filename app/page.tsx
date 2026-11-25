@@ -1218,6 +1218,7 @@ export default function Home() {
               <button onClick={() => openTab("daily")} className="hover:text-amber-300">{t.daily}</button>
               <button onClick={() => openTab("updates")} className="hover:text-purple-300">Aktualizacje</button>
               <button onClick={() => openTab("announcements")} className="hover:text-amber-300">Ogłoszenia</button>
+              <Link href="/update-1" className="font-bold text-purple-300 hover:text-purple-200">Biblioteka trapów</Link>
 
               {loggedIn && (
                 <a href="/account" className="font-bold text-purple-300">
