@@ -100,3 +100,16 @@ Not yet complete or not yet verified:
 - The full-repository lint command still contains pre-existing legacy lint debt; the workflow reports it as a non-blocking baseline step so beta-specific lint and production builds remain visible separately.
 - SQL migrations have been reviewed in code but have not been executed against a beta or production database. Database migration syntax/RLS behavior still needs validation on an isolated beta Supabase project.
 \n\n## Latest work (2026-11-25)\n\n- Restored the legacy homepage component on the beta branch and added a link to the Update 1.0 trap library.\n- Added beta login links, password reset flow, and email-confirmation redirect.\n- Added TrapCreator create/edit-own and staff moderation UI gates in the trap catalogue. Database policies still require role-boundary testing.\n- Applied beta-only SECURITY DEFINER execute lockdown: no SECURITY DEFINER routine in `public` remains executable by `anon`; 65 remain executable by `authenticated` and need a routine-by-routine authorization audit. Four RLS-enabled tables intentionally have no direct client policies (`access_revocations`, `daily_access_grants`, `order_reviews`, `tm_discord_outbox`).\n- Latest preview build/runtime not yet confirmed; do not claim all Update 1.0 features are complete.\n
+
+## Verified environment audit (2026-11-25)
+
+- The isolated Supabase project `TrapMasters-Beta` (`owzyzfltwronhxbsrccd`) is `ACTIVE_HEALTHY`; production project `ogroffplttjcdfmrsrpe` was not modified.
+- The beta database currently has 56 public base tables. RLS is enabled across the application tables.
+- The beta Auth database currently has 0 users and `public.user_roles` has 0 rows. Owner login therefore cannot be end-to-end verified until a beta user is registered and separately granted the Owner role through the intended secure process. No production users or credentials are copied.
+- Current privilege audit: 0 public-schema SECURITY DEFINER routines executable by `anon`; 65 executable by `authenticated`. These require routine-by-routine authorization review; blanket revocation would break legitimate RPCs and is not safe.
+- Four RLS-enabled tables have no client policies: `access_revocations`, `daily_access_grants`, `order_reviews`, and `tm_discord_outbox`. They are currently closed to direct client access; do not add broad policies merely to silence the advisor.
+- Supabase advisors still report security/performance findings, including the 65 authenticated SECURITY DEFINER routines, RLS policy performance warnings, and overlapping permissive policies. These remain review items rather than being marked fixed.
+- Vercel currently returns no project linked to this repository/branch in the TrapMasters team, and the recorded Beta project ID returns not-found. There is no verified preview deployment for the latest branch commit. Do not create a replacement project without separately configuring and validating its isolated preview environment variables and domains.
+- Git comparison reports the feature branch is 159 commits ahead and 27 behind `main`. It must remain isolated; do not merge or rebase it onto production as part of this work.
+- The current preview URL is not a verified release artifact. A working beta link may only be published after a successful preview deployment and browser/runtime smoke test.
+
