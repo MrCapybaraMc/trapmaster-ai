@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { createClient } from "../../lib/supabase/client";
 
@@ -15,6 +15,15 @@ export default function RegisterPage({ initialMode = "register" }) {
   const [confirmPassword, setConfirmPassword] = useState("");
   const [message, setMessage] = useState("");
   const [loading, setLoading] = useState(false);
+  const [recovery, setRecovery] = useState(false);
+  const [resetSent, setResetSent] = useState(false);
+
+  useEffect(() => {
+    const { data } = supabase.auth.onAuthStateChange((event) => {
+      if (event === "PASSWORD_RECOVERY") { setRecovery(true); setMode("login"); setMessage("Ustaw nowe hasło do konta."); }
+    });
+    return () => data.subscription.unsubscribe();
+  }, [supabase]);
 
   async function handleSubmit(e) {
     e.preventDefault();
@@ -22,14 +31,20 @@ export default function RegisterPage({ initialMode = "register" }) {
     setLoading(true);
 
     try {
-      if (mode === "register") {
+      if (recovery) {
+        const { error } = await supabase.auth.updateUser({ password });
+        if (error) throw error;
+        setRecovery(false);
+        setMessage("Hasło zostało zmienione. Możesz się zalogować.");
+        await supabase.auth.signOut();
+      } else if (mode === "register") {
         const cleanNickname = nickname.trim();
         if (cleanNickname.length < 3 || cleanNickname.length > 32) throw new Error("Nick konta musi mieć od 3 do 32 znaków.");
         if (password !== confirmPassword) throw new Error("Hasła nie są identyczne.");
         const { data, error } = await supabase.auth.signUp({
           email,
           password,
-          options: { data: { nickname: cleanNickname, display_name: cleanNickname } },
+          options: { data: { nickname: cleanNickname, display_name: cleanNickname }, emailRedirectTo: `${window.location.origin}/login` },
         });
 
         if (error) throw error;
@@ -42,7 +57,7 @@ export default function RegisterPage({ initialMode = "register" }) {
           router.refresh();
         }
       } else {
-        const { error } = await supabase.auth.signInWithPassword({ email, password });
+        const { error } = await supabase.auth.signInWithPassword({ email: email.trim(), password });
         if (error) throw error;
         router.push("/update-1");
         router.refresh();
@@ -57,15 +72,15 @@ export default function RegisterPage({ initialMode = "register" }) {
   return (
     <main className="min-h-screen bg-[#080b12] text-white flex items-center justify-center p-5">
       <div className="w-full max-w-md rounded-2xl border border-white/10 bg-[#111827] p-8 shadow-2xl">
-        <a href="/update-1" className="text-sm text-gray-400 hover:text-white">← Powrót do TrapMasters</a>
+        <a href="/" className="text-sm text-gray-400 hover:text-white">← Powrót do TrapMasters</a>
         <h1 className="mt-6 text-3xl font-black">TRAP<span className="text-purple-400">MASTERS</span></h1>
-        <p className="mt-2 text-gray-400">{mode === "register" ? "Utwórz konto beta." : "Zaloguj się na konto beta."}</p>
+        <p className="mt-2 text-gray-400">{recovery ? "Ustaw nowe hasło." : mode === "register" ? "Utwórz osobne konto beta." : "Zaloguj się na konto beta."}</p>
         <div className="mt-6 grid grid-cols-2 gap-2 rounded-xl bg-black/30 p-1">
           <button type="button" onClick={() => { setMode("register"); setMessage(""); }} className={`rounded-lg p-3 ${mode === "register" ? "bg-purple-600" : "text-gray-400"}`}>Rejestracja</button>
           <button type="button" onClick={() => { setMode("login"); setMessage(""); }} className={`rounded-lg p-3 ${mode === "login" ? "bg-purple-600" : "text-gray-400"}`}>Logowanie</button>
         </div>
         <form onSubmit={handleSubmit} className="mt-6 space-y-4">
-          {mode === "register" && <div>
+          {mode === "register" && !recovery && <div>
             <label className="mb-2 block text-sm text-gray-300">Nickname konta</label>
             <input type="text" required minLength={3} maxLength={32} value={nickname} onChange={(e) => setNickname(e.target.value)} className="w-full rounded-xl border border-white/10 bg-black/30 p-3 outline-none focus:border-purple-500" placeholder="Twój nickname" />
           </div>}
