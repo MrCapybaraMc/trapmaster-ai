@@ -47,13 +47,16 @@ export default function UpdateOnePage() {
   const [comboCode,setComboCode] = useState("");
   const [userId, setUserId] = useState("");
   const [isStaff, setIsStaff] = useState(false);
+  const [canAddTrap, setCanAddTrap] = useState(false);
 
   const load = useCallback(async () => {
     const { data: auth } = await supabase.auth.getUser();
     if (!auth.user) { setMessage("Zaloguj się, aby korzystać z katalogu."); return; }
     setUserId(auth.user.id);
     const { data: roleRows } = await supabase.from("user_roles").select("role").eq("user_id",auth.user.id);
-    setIsStaff((roleRows??[]).some((row:{role:string})=>["admin","headadmin","owner"].includes(row.role)));
+    const roles = (roleRows ?? []).map((row:{role:string}) => row.role);
+    setIsStaff(roles.some((role:string)=>["admin","headadmin","owner"].includes(role)));
+    setCanAddTrap(roles.some((role:string)=>["trapcreator","admin","headadmin","owner"].includes(role)));
     const { data: preferences } = await supabase.from("tm_user_settings").select("videos_muted").eq("user_id",auth.user.id).maybeSingle();
     setVideoMuted(preferences?.videos_muted ?? true);
     const { data, error } = await supabase.from("traps").select("*").order("created_at", { ascending: false });
@@ -83,7 +86,9 @@ export default function UpdateOnePage() {
   }), [traps, tab, search, armor, puller, totems, feather, extraFilter, trapTypeFilter]);
 
   async function saveTrap(event: React.FormEvent) {
-    event.preventDefault(); setBusy(true); setMessage("");
+    event.preventDefault();
+    if (!canAddTrap || (!isStaff && editingTrap && !traps.some((trap) => trap.id === editingTrap && trap.created_by === userId))) { setMessage("Brak uprawnień do dodania lub edycji tego trapa."); return; }
+    setBusy(true); setMessage("");
     const payload = { ...form, video_url: form.video_url || null, extra_video_url: form.extra_video_url || null, schematic_url: form.schematic_url || null, updated_by: userId, published: true };
     const { error } = editingTrap
       ? await supabase.from("traps").update(payload).eq("id", editingTrap)
@@ -179,7 +184,9 @@ export default function UpdateOnePage() {
         </header>
         <nav className="mb-5 flex flex-wrap gap-2">
           {(["traps","library","backup"] as const).map((item) => <button key={item} onClick={() => { setTab(item); setSelected(null); }} className={`rounded-xl px-4 py-2 text-sm font-bold ${tab===item?"bg-purple-600":"bg-white/10"}`}>{item==="traps"?"Trapy":item==="library"?"Biblioteka":"Backupy"}</button>)}
-          <button onClick={() => setShowForm((v)=>!v)} className="rounded-xl bg-emerald-600 px-4 py-2 text-sm font-bold">+ Dodaj trap</button>
+          {canAddTrap && <button onClick={() => { setEditingTrap(null); setForm(emptyTrap); setShowForm((v)=>!v); }} className="rounded-xl bg-emerald-600 px-4 py-2 text-sm font-bold">+ Dodaj trap</button>}
+          {isStaff && <span className="self-center text-xs text-purple-200">Panel moderacji</span>}
+          {!canAddTrap && <span className="self-center text-xs text-white/60">Dodawanie trapów dostępne dla Trap Creators i administracji</span>}
         </nav>
         {message && <p role="status" className="mb-4 rounded-xl border border-white/10 bg-white/5 p-3 text-sm">{message}</p>}
         <form onSubmit={redeemCombo} className="relative z-10 mb-5 flex flex-wrap gap-2 rounded-xl border border-white/10 bg-black/40 p-3"><input value={comboCode} onChange={e=>setComboCode(e.target.value)} placeholder="Kod SuperCombo" className="min-w-0 flex-1 rounded-lg border border-white/10 bg-black/30 px-3 py-2 text-white"/><button className="rounded-lg bg-purple-600 px-4 py-2 font-bold">Wykorzystaj kod</button></form>
@@ -191,7 +198,7 @@ export default function UpdateOnePage() {
           <input className={inputClass} placeholder="Link do schematu" value={form.schematic_url} onChange={e=>setForm({...form,schematic_url:e.target.value})}/>
           <textarea className={inputClass+" md:col-span-2"} placeholder="Instrukcja budowy" value={form.instructions} onChange={e=>setForm({...form,instructions:e.target.value})}/>
           <textarea className={inputClass+" md:col-span-2"} placeholder="Pełny opis" value={form.description} onChange={e=>setForm({...form,description:e.target.value})}/>
-          <select className={inputClass} value={form.collection} onChange={e=>setForm({...form,collection:e.target.value as typeof form.collection})}><option value="traps">Trapy</option><option value="library">Biblioteka</option><option value="backup">Backup</option></select>
+          <select className={inputClass} value={form.collection} onChange={e=>setForm({...form,collection:e.target.value as typeof form.collection})}><option value="traps">Trapy</option><option value="library">Biblioteka</option>{isStaff && <option value="backup">Backup</option>}</select>
           <select className={inputClass} value={form.trap_type} onChange={e=>setForm({...form,trap_type:e.target.value})}><option value="standard">Standardowy</option><option value="piston">Piston trap</option><option value="railgun">Railgun</option></select>
           <div className="flex flex-wrap gap-4 md:col-span-2">{["Diax zbroja 4/3","Diax bez enchantów","Netherite 4/3","Ametystowa","Szmaragdowa"].map(x=><label key={x} className="flex items-center gap-2 text-sm"><input type="checkbox" checked={form.armor_types.includes(x)} onChange={e=>setForm({...form,armor_types:e.target.checked?[...form.armor_types,x]:form.armor_types.filter(v=>v!==x)})}/>{x}</label>)}</div>
           <div className="flex flex-wrap gap-5 md:col-span-2">{([["puller","Puller"],["totems","Totemy"],["feather_falling","Feather Falling"]] as const).map(([key,label])=><label key={key} className="flex items-center gap-2"><input type="checkbox" checked={form[key]} onChange={e=>setForm({...form,[key]:e.target.checked})}/>{label}</label>)}</div>
