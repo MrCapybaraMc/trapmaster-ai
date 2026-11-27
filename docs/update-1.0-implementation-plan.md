@@ -113,3 +113,22 @@ Not yet complete or not yet verified:
 - Git comparison reports the feature branch is 159 commits ahead and 27 behind `main`. It must remain isolated; do not merge or rebase it onto production as part of this work.
 - The current preview URL is not a verified release artifact. A working beta link may only be published after a successful preview deployment and browser/runtime smoke test.
 
+
+
+## Additional requested Beta scope (2026-11-27) — specification only
+
+The following product requirements have been recorded in dedicated specifications; they are **not yet implemented or deployed**:
+
+- Trading Mall: at most 3 active offers created by one user, enforced atomically server-side; direct Daily Points-for-Daily Points trades are forbidden in every direction and API path. See `docs/trading-mall-spec.md`.
+- Staff profiles and moderation: Admin/HeadAdmin/Owner see profile nickname and avatar; only HeadAdmin/Owner may receive email data. All three staff roles can issue reasoned warnings and temporary bans in whole hours. Unacknowledged warnings block protected site actions until the user presses „Zrozumiałem”; staff can see the acknowledgement timestamp. Banned users are blocked from normal site features except the narrowly scoped Daily Points claim. Only HeadAdmin/Owner can revoke bans from the dedicated banned-users list. All actions require server-side authorization, audit history and RLS. See `docs/admin-moderation-spec.md`.
+- Purchase flow: package/enchant price snapshots, generated order-bound payment command and optional private payment recording upload under „Jeśli chcesz szybciej”. See `docs/purchase-enchantments-expedite-spec.md`.
+
+Previously documented Update 1.0 scope remains required and must be checked before release:
+- Enchanting Table tiers, enchant pools/effects, account enchant display and persistent unactivated TrapMaster reward.
+- Trading Mall offer/acceptance/history, atomic asset settlement, package payment redemption, staff oversight and localization.
+- Package download allowances (5/day, 7/day, 10/day, 15/day), Długość duration calculations and Owner pricing controls.
+- Admin/HeadAdmin/Owner controls for enchants, Daily Points, quotas, events and store settings according to the existing permission model.
+- Optional purchase proof upload and staff purchase review.
+- Polish/English coverage, official supplied logo in navigation/footer/loading state, and all previously listed trap library/account/creator/notification/Discord/analytics requirements in this plan and linked specifications.
+
+Release checklist must reference every acceptance test in the linked specifications. Documentation commits do not count as feature completion. Implement and verify each item only on the Beta branch and isolated Beta Supabase project; never change main or production.
