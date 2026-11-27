@@ -173,6 +173,12 @@ export default function UpdateOnePage() {
   }
 
   const inputClass = "w-full rounded-xl border border-white/10 bg-black/30 px-3 py-2 text-white";
+  if (!accessChecked) {
+    return <main className="min-h-screen bg-[#070910] px-4 py-16 text-center text-white"><p className="text-lg font-bold">Sprawdzanie uprawnień…</p></main>;
+  }
+  if (!hasAccess) {
+    return <main className="min-h-screen bg-[#070910] px-4 py-16 text-white"><section className="mx-auto max-w-xl rounded-2xl border border-white/10 bg-white/5 p-8 text-center"><h1 className="text-3xl font-black">Brak dostępu</h1><p className="mt-3 text-white/70">Biblioteka trapów jest dostępna wyłącznie dla Trap Creator, aktywnego pakietu TrapMasters, HeadAdmin lub Owner.</p><div className="mt-6 flex flex-wrap justify-center gap-3"><Link href="/update-1/pay" className="rounded-xl bg-purple-600 px-4 py-2 font-bold">Pakiety TrapMasters</Link><Link href="/" className="rounded-xl border border-white/20 px-4 py-2">Strona główna</Link></div></section></main>;
+  }
   return (
     <main className="relative min-h-screen overflow-hidden bg-[#070910] px-4 py-8 text-white sm:px-8">
       <video ref={backgroundVideoRef} key={tab} className="fixed inset-0 h-full w-full object-cover" src="/videos/ender-bg.mp4" autoPlay loop muted={videoMuted} playsInline />
