@@ -12,6 +12,7 @@ type AuditRow={id:number;target_user_id:string|null;actor_user_id:string|null;ac
 export default function UpdateAdminPage(){
  const [db]=useState(()=>typeof window==="undefined"?null as unknown as ReturnType<typeof createClient>:createClient());
  const [roles,setRoles]=useState<string[]>([]);
+ const [authorized,setAuthorized]=useState<boolean|null>(null);
  const [tab,setTab]=useState("overview");
  const [staff,setStaff]=useState<Staff[]>([]);
  const [stats,setStats]=useState<Record<string,number>>({});
@@ -36,11 +37,13 @@ export default function UpdateAdminPage(){
  const [message,setMessage]=useState("");const [busy,setBusy]=useState(false);
  const owner=roles.includes("owner");const head=roles.includes("headadmin");
  async function load(){
-  const {data:auth}=await db.auth.getUser();if(!auth.user){setMessage("Zaloguj się.");return;}
+  setAuthorized(null);
+  const {data:auth}=await db.auth.getUser();if(!auth.user){setMessage("Zaloguj się.");setAuthorized(false);return;}
   const {data:r,error:roleError}=await db.from("user_roles").select("role").eq("user_id",auth.user.id);
-  if(roleError){setMessage(roleError.message);return;}
+  if(roleError){setMessage(roleError.message);setAuthorized(false);return;}
   const current=(r??[]).map((x:{role:string})=>x.role);setRoles(current);
-  if(!current.some(x=>["admin","headadmin","owner"].includes(x))){setMessage("Brak dostępu do panelu.");return;}
+  if(!current.some(x=>["admin","headadmin","owner"].includes(x))){setMessage("Brak dostępu do panelu.");setAuthorized(false);return;}
+  setAuthorized(true);
   const [{data:s},{data:overview},{data:e},{data:p},{data:a},{data:store},{data:announcementRows}]=await Promise.all([
    current.some(x=>["owner","headadmin"].includes(x))?db.rpc("tm_list_staff_roles") : Promise.resolve({data:[]}),
    db.rpc("tm_admin_overview"),
@@ -91,6 +94,8 @@ export default function UpdateAdminPage(){
  async function addCombo(e:FormEvent){e.preventDefault();let rewardData:unknown;try{rewardData=JSON.parse(rewards);if(!Array.isArray(rewardData))throw new Error();}catch{setMessage("Nagrody muszą być tablicą JSON.");return;}const {data:u}=await db.auth.getUser();await run(()=>db.from("tm_supercombo_codes").insert({code:code.trim().toUpperCase(),rewards:rewardData,expires_at:expiry?new Date(expiry).toISOString():null,max_uses:maxUses?Number(maxUses):null,created_by:u.user?.id}));setCode("");}
  const field="w-full rounded-xl border border-white/10 bg-black/30 px-4 py-3 text-white";
  const maxStaffSeconds=Math.max(1,...staffActivity.map(x=>x.active_seconds));
+ if(authorized===null)return <main className="min-h-screen bg-[#080812] p-8 text-white"><p>Sprawdzanie uprawnień…</p></main>;
+ if(!authorized)return <main className="min-h-screen bg-[#080812] px-4 py-16 text-white"><div className="mx-auto max-w-xl rounded-2xl border border-white/10 bg-white/5 p-8"><h1 className="text-2xl font-black">Brak dostępu</h1><p className="mt-3 text-white/70">{message||"Panel administracyjny jest dostępny wyłącznie dla administracji."}</p><a href="/update-1" className="mt-6 inline-block rounded-xl bg-purple-600 px-4 py-2 font-semibold">Wróć do strony</a></div></main>;
  return <main className="min-h-screen bg-[#080812] px-4 py-8 text-white sm:px-8"><div className="mx-auto max-w-6xl">
   <header className="mb-8"><p className="text-xs font-bold tracking-[.3em] text-purple-300">TRAPMASTERS · UPDATE 1.0</p><h1 className="mt-2 text-4xl font-black">Panel administracyjny beta</h1><p className="mt-2 text-white/60">Zarządzanie funkcjami wyłącznie w bazie testowej.</p></header>
   {message&&<p role="status" className="mb-4 rounded-xl bg-white/10 p-3">{message}</p>}
