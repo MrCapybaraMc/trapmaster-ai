@@ -141,3 +141,52 @@ Event modifiers must be applied on the server, have explicit caps and stacking r
 - If multiple duration enchants/events apply, show the combined capped result and disclose the stacking rule. The checkout must revalidate the final duration before charging.
 - Display active account enchants and their effects in both the Enchanting Table and account information; both views must read the same canonical server data.
 - The TrapMaster special entitlement stays unactivated and tradeable until the user presses the persistent **Aktywuj TrapMaster** action. Activation starts the one-hour timer and two-download allowance; activated entitlements cannot be traded.
+
+
+## 10. Enchant inventory, equipped slots and full catalogue (2026-11-27)
+
+### Inventory and equipment rules
+
+- Each account may own at most **6 distinct enchant types** in its enchant inventory.
+- An account may have at most **3 enchant types equipped at the same time**. Only equipped enchants apply their gameplay, Daily, package, cooldown, luck or access effects.
+- The UI must separate **Posiadane enchanty** (up to 6) from **Założone enchanty** (up to 3). Show clear equip/unequip controls, occupied slots (e.g. 2/3) and inventory capacity (e.g. 5/6).
+- Equipping or unequipping an owned enchant must not consume Daily Points. Enforce the 3-slot limit on the server; do not rely on disabled UI controls.
+- A newly rolled enchant of a type already owned replaces that type's stored copy/level, even if the new level is equal or lower, consistent with the existing replacement rule. Preserve its equipped state if it was equipped.
+- If a roll would award a new distinct enchant while the inventory already contains 6 types, do not charge or finalize the roll until the user chooses an existing enchant to replace, or otherwise resolve the full-inventory state. Never silently discard an owned enchant.
+- If a user receives an enchant from an admin grant while the inventory is full, require an explicit replacement choice or an audited admin override flow; never silently exceed the six-type limit.
+- Removing/unequipping an enchant immediately removes its effects from future server-side calculations. Historical purchases and already-claimed rewards are not recalculated.
+- Store inventory ownership separately from equipped state. All price, Daily reward, cooldown, package-duration, discount, luck and entitlement calculations must use only the server-validated equipped set.
+- Add tests for 0–6 owned enchants, attempted seventh distinct enchant, 0–3 equipped enchants, attempted fourth equip, replacement of an owned type, full-inventory roll behavior and concurrent equip requests.
+
+### New Best-tier enchant: Kapibarątko
+
+- Add **Kapibarątko** as a unique, no-level enchant type in the **Best / 1,000 Daily Points** pool only.
+- Visual identity: a warm brown enchant icon/effect inspired by a capybara. It must be visibly distinct from level-based enchants and display no Roman numeral or level.
+- When equipped, Kapibarątko grants:
+  1. **−5% on every eligible TrapMasters package**.
+  2. **+5% package duration** for every eligible package.
+  3. **+5% Daily Points** on each eligible Daily claim.
+  4. **−5% Daily waiting time/cooldown**.
+- These modifiers apply only while Kapibarątko is equipped. If unequipped, its effects stop applying to future calculations immediately.
+- Package discount applies to every eligible package regardless of payment method, as requested, subject to centrally defined discount caps and a clear checkout breakdown. Do not silently limit this enchant to Daily-Points purchases.
+- Calculate package duration from the original package duration and the equipped +5% modifier, using the same server-side calculation for preview and checkout. Apply configured duration caps and rounding.
+- Calculate the Daily reward and waiting time from the canonical base values. Kapibarątko's +5% reward and −5% cooldown are each applied once; they must not compound on every page refresh or claim retry.
+- The Kapibarątko chance within the Best pool must be explicitly configured in the server-owned probability table. Do not invent a probability. The complete Best pool must still total exactly 100%, including the separately specified TrapMaster outcome.
+- Define and test how Kapibarątko combines with OG, Daily I–VI, Premium, Zniżka, Długość, Słabość and event modifiers. Use one shared server-side stacking order, caps and rounding rules; never double-count a modifier. Show a readable breakdown to the user.
+
+### Unified enchant list shown in the UI
+
+The collapsible **Rozwiń listę enchantów** section must list every enchant type, its tier, whether it has levels, its possible level range, and its exact effect. Keep this catalogue synchronized with server configuration. It must include:
+
+- **Zniżka I–V** — each level gives 5% off eligible package purchases made with Daily Points (up to 25% at V), subject to discount caps.
+- **Długość I–VI** — each level adds 5% package duration (up to 30%), subject to duration caps.
+- **Premium I–III** — reduces Daily Point enchanting cost by 10% per level and gives 10% package discount per level for packages paid with Daily Points, subject to caps.
+- **Enchantowiec I–VI** — increases attempts in one paid enchant roll; level I = 2 total attempts, level II = 3 total attempts; higher levels require an explicit configured rule and must not be guessed.
+- **Słabość I–VI** — each level increases the Daily waiting period by 5%; clearly mark as a drawback.
+- **Daily I–VI** — each level adds 5% to the Daily Points reward (up to 30%), subject to reward caps.
+- **Lucky I–VI** — each level adds 5% relative weight toward better enchant outcomes; use the capped, normalized server-side formula, not an unbounded absolute percentage-point bonus.
+- **Ciekawicz I–III** — I: read-only preview of the TrapMasters interface; II: additionally browse trap names only; III: additionally watch trap videos/read instructions, but never access schematics/downloads through this enchant.
+- **TrapMaster (no level)** — temporary one-hour TrapMasters access and up to two schematic downloads, held unactivated until the user presses the persistent activation control; activation starts the timer.
+- **Kapibarątko (no level)** — brown capybara-themed Best-tier enchant; −5% every eligible package, +5% package duration, +5% Daily Points reward, and −5% Daily waiting time while equipped.
+
+The UI must not display unsupported levels as obtainable. For any enchant whose upper levels have no defined effect yet (for example Enchantowiec III–VI), either display them as admin-only/unavailable until configured or obtain an approved rule before enabling those levels in normal rolls.
