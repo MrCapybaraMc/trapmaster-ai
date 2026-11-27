@@ -107,3 +107,37 @@ Use the account's language preference consistently across all routes, including 
 11. Polish/English language preference is respected throughout.
 12. Logo asset is present in the repository and rendered responsively in selected site locations.
 13. Build, lint, migration replay, RLS tests and Beta preview smoke tests pass before release.
+
+## Additional implementation requirements (2026-11-27)
+
+### Secure atomic settlement
+- In a single database transaction, lock both accounts and all offered inventory/entitlements; re-check the offer is open, unexpired and not self-accepted.
+- Re-check balances, enchant ownership/levels, package eligibility, account restrictions and quota rules immediately before settlement.
+- Debit/credit Daily Points through the immutable points ledger; transfer eligible enchant records; transfer only explicitly transferable package entitlements. Never transfer an active non-transferable package or grant a package without a valid entitlement record.
+- Mark the offer completed exactly once and write paired immutable history records for both accounts.
+- If any check fails, roll back the entire exchange. Unique idempotency keys and row-level locking prevent replay, duplicate items and concurrent acceptance.
+
+### TrapMaster activation and tradeability
+- A dropped TrapMaster reward is initially stored as an unactivated account entitlement.
+- Display a persistent fixed **Aktywuj TrapMaster** action at the lower-left across routes while the entitlement is available. It must not cover essential controls; on mobile it may collapse into an accessible floating control.
+- The user may leave the entitlement unactivated and offer it in Trading Mall. Once activated, it is no longer tradeable.
+- Activation starts one-hour access and grants at most two schematic downloads. Expiry and download count are enforced server-side. Activation or transfer can happen only once.
+
+### Package acceptance and redemption
+- When a user accepts an offer requesting a TrapMasters package, notify the offer creator with: **„Trade zaakceptowany — opłać za TrapMasters”**.
+- Show a copyable, single-use redemption command/code bound to that offer, package type, recipient and expiry.
+- The code must not grant access until payment/fulfilment is validated. Redeeming it atomically fulfils the agreed package side and closes the trade. No generic reusable code and no partial transfer.
+- Keep an audit trail of command creation, copy/redeem attempts, payment status and final fulfilment.
+
+### Admin, history and localization
+- Owner and HeadAdmin can view every offer, pending acceptance, dispute/status and completed trade in the admin panel, with search/filter by status, user display name, item category and date.
+- Both parties see completed exchanges in account history with timestamp, counterparty display name, all items on both sides and final status.
+- Notify both users on acceptance, cancellation, expiry, dispute and fulfilment.
+- Every label, validation error, status, notification and admin view must support Polish and English through the account language preference.
+- All mutations require server-side authorization; public listings expose only safe display data. Corrections to completed trades use explicit compensating ledger/entitlement entries, never silent edits.
+
+### Acceptance tests
+- Test insufficient balance, stale inventory, expired offers, self-trading, duplicate requests, simultaneous acceptance, account restrictions, role boundaries and transaction rollback.
+- Test TrapMaster activation-vs-transfer races and the two-download limit.
+- Test redemption code is single-use, recipient-bound and cannot be reused.
+- Test Polish/English across all states, responsive/mobile layout and persistent activation action.
