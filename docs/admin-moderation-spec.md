@@ -46,7 +46,20 @@ Status: product/security specification for the isolated Beta branch. This is not
 - Revoked/expired bans remain searchable in moderation history but are not shown as currently active.
 - Enforce role checks in the server/database. Do not rely on hidden buttons or editable browser state.
 
-## 5. Roles and privacy matrix
+## 5. Login lockout after failed attempts
+
+- Apply this rule to the isolated Beta authentication flow: after **3 consecutive failed password-login attempts for the same account**, block further login attempts for that account for **60 minutes**.
+- A failed attempt is an authentication attempt rejected by the server. Do not count client-side validation errors, missing fields or network failures as incorrect-password attempts.
+- The counter and lock expiry must be stored and updated atomically on the server/database. Do not rely on browser storage, cookies or client timers; changing browser/device must not bypass an active account lock.
+- A successful login resets the consecutive-failure counter. Once the account is locked, further attempts must not extend the 60-minute period.
+- While locked, show a clear Polish message with the remaining wait time, e.g. **„Logowanie zablokowane po 3 nieudanych próbach. Spróbuj ponownie za [czas].”** Use server time for the countdown.
+- **Admin, HeadAdmin and Owner** may manually remove an account's login lock from the staff panel. Verify the actor's current role server-side; ordinary users must not be able to unlock themselves or another account.
+- Unlocking clears the active lock and failed-attempt counter immediately. Record an append-only audit event containing the target account, staff actor, timestamp and action. Do not expose the target email to Admin if the staff directory privacy rules prohibit it.
+- Keep the login response generic enough not to reveal whether an arbitrary email address is registered. Do not expose internal counters, IP addresses or private authentication metadata to ordinary users.
+- Add complementary per-IP/device abuse throttling and monitoring so the account lockout cannot be trivially abused to repeatedly deny a victim access. These controls must not replace the required account-based 3-attempt/60-minute rule.
+- The login lock is separate from temporary moderation bans. Expiry of one restriction must not silently clear the other.
+
+## 6. Roles and privacy matrix
 
 | Capability | Admin | HeadAdmin | Owner |
 |---|---:|---:|---:|
@@ -57,15 +70,16 @@ Status: product/security specification for the isolated Beta branch. This is not
 | Issue temporary ban | Yes | Yes | Yes |
 | View active/recent ban records | Yes | Yes | Yes |
 | Revoke an active ban | No | Yes | Yes |
+| View and manually clear a login lock | Yes | Yes | Yes |
 
 - Role resolution must use the authoritative user_roles system and server-validated permissions, never user-editable metadata.
 - Preserve the existing multi-role hierarchy and verify each action against the actor's current roles at the time of the request.
 - Staff must not issue moderation actions against themselves or against a higher-privileged staff member unless an explicit owner-approved policy is designed and tested. Default: deny self-moderation and prevent lower roles from moderating higher roles.
 - Email must be excluded from Admin responses at the database/API boundary, not merely masked in the UI.
 
-## 6. Audit, data protection and abuse prevention
+## 7. Audit, data protection and abuse prevention
 
-- Keep append-only audit events for warning issue, warning acknowledgement, warning withdrawal/correction, ban issue, automatic expiry, ban revocation and every failed unauthorized attempt where appropriate.
+- Keep append-only audit events for warning issue, warning acknowledgement, warning withdrawal/correction, ban issue, automatic expiry, ban revocation, login-lock creation/expiry/manual removal and every failed unauthorized attempt where appropriate.
 - Store reasons as plain text with length limits and safe rendering; escape HTML and never render staff-entered reason as executable markup.
 - Use database constraints and transactional RPCs for issue/revoke/acknowledge operations. Add idempotency protections against duplicate clicks/retries.
 - Apply RLS and server authorization so users can read only their own active warning/ban notice and acknowledgement state; staff access follows the role matrix. Users cannot edit/delete moderation records.
@@ -73,7 +87,7 @@ Status: product/security specification for the isolated Beta branch. This is not
 - Do not let a ban block the narrow Daily Points claim exception. Add explicit tests proving every other protected mutation is denied while banned.
 - Add rate limits and audit trails for warning/ban creation to reduce accidental or abusive mass moderation.
 
-## 7. Required acceptance tests
+## 8. Required acceptance tests
 
 1. Admin directory/profile API returns nickname/avatar but never email; HeadAdmin/Owner receive email only where authorized.
 2. Admin, HeadAdmin and Owner can issue a warning with a required reason; ordinary users cannot.
@@ -86,5 +100,9 @@ Status: product/security specification for the isolated Beta branch. This is not
 9. Only HeadAdmin and Owner can revoke a ban; Admin is denied even when calling the endpoint directly.
 10. Revocation requires a reason, takes effect immediately and preserves the original ban history.
 11. Active and historical bans are visible in the dedicated staff list with correct state and role-based privacy.
-12. Role hierarchy, self-moderation restrictions, idempotency, RLS and Polish/English UI are tested.
-13. All tests run only against Beta project owzyzfltwronhxbsrccd; never modify production project ogroffplttjcdfmrsrpe.
+12. Exactly three consecutive failed password attempts create a 60-minute account lock; the fourth attempt is denied while locked.
+13. A successful login before lockout resets the failed-attempt counter.
+14. Admin, HeadAdmin and Owner can clear an active login lock; ordinary users and unauthorized roles cannot.
+15. Login-lock creation, expiry and staff removal are audited; account-lock and IP/device throttles do not leak private account data.
+16. Role hierarchy, self-moderation restrictions, idempotency, RLS and Polish/English UI are tested.
+17. All tests run only against Beta project owzyzfltwronhxbsrccd; never modify production project ogroffplttjcdfmrsrpe.
