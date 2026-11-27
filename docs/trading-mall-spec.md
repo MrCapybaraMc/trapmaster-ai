@@ -141,3 +141,23 @@ Use the account's language preference consistently across all routes, including 
 - Test TrapMaster activation-vs-transfer races and the two-download limit.
 - Test redemption code is single-use, recipient-bound and cannot be reused.
 - Test Polish/English across all states, responsive/mobile layout and persistent activation action.
+
+
+## Additional Trading Mall rules (2026-11-27)
+
+### Per-user offer limit
+- A user may have at most **3 active trade offers they created** at one time. Count offers in states such as `open`, `reserved/accepting` and `awaiting package payment`; do not count completed, cancelled, expired or failed offers.
+- Enforce the limit atomically on the server/database when creating an offer, so simultaneous requests cannot create a fourth active offer.
+- Show the current count (for example, 2/3) and a clear message when the limit is reached. A user can create another offer after an existing one leaves an active state.
+- This is a limit on offers created, not a limit on viewing or accepting other users' offers.
+
+### No Daily Points-for-Daily Points trades
+- Reject any offer where both sides are Daily Points, regardless of quantities or which side is offering/requesting the points.
+- Enforce this rule in the server-side create and settlement logic, not only by hiding a UI option.
+- The UI should explain that Daily Points cannot be exchanged directly for Daily Points. Daily Points may still be exchanged for an eligible enchant or eligible TrapMasters entitlement/package subject to all other trade rules.
+- Add tests for both directions and for attempts to bypass the UI/API validation.
+
+### Trading Mall acceptance tests
+14. A user cannot create a fourth active offer; completing/cancelling/expiring one frees a slot.
+15. Two concurrent create requests cannot exceed the three-active-offer limit.
+16. A Daily Points ↔ Daily Points offer is rejected server-side in every creation path and cannot be settled if malformed legacy data exists.
