@@ -40,3 +40,20 @@ Status: product specification only. No application code, database migration, or 
 ## 4. Release boundary
 
 This specification is for the isolated Beta branch and Beta database only. It is not implemented or deployed. Do not modify `main` or the production Supabase project. Implementation requires tests and preview verification before any production-release decision.
+
+
+## 5. Rolling 24-hour Daily schedule clarification (2026-11-27)
+
+This section supersedes any earlier wording in this document that describes Daily claims as resetting at midnight or being counted by a fixed calendar day.
+
+- Daily does **not** reset at midnight. Each account becomes eligible for its next Daily claim **24 hours after its previous successful claim**, adjusted only by the user's currently equipped, server-authorized cooldown modifiers and any explicitly active event rules.
+- Store the authoritative last_claim_at and calculated next_claim_at timestamps server-side. The client must never choose or modify either timestamp.
+- After a successful claim, show a live countdown in the Daily tab indicating exactly when the next claim becomes available. The countdown is informational; the server must independently enforce eligibility.
+- A claim is accepted only when server time is at or after next_claim_at. Duplicate, concurrent or replayed requests must not award points or advance the schedule more than once.
+- Daily streaks count consecutive successful personal claim cycles for that account, not calendar dates. The account's first successful claim starts its streak at day 1; each subsequent eligible claim made in the next consecutive 24-hour cycle increments it. Missing an entire eligible claim cycle breaks the current streak; the next successful claim starts at day 1. Preserve the historical longest streak.
+- For the combined login-and-Daily statistics leaderboard, a qualifying cycle requires both a server-recorded successful login and a successful Daily claim during the same personal 24-hour cycle. Do not use midnight boundaries. Document the cycle boundaries in the UI/help text.
+- A user's login event must be a genuine authenticated sign-in/session establishment recorded by the server, not a page refresh or background token refresh. A claim alone does not satisfy the login requirement, and a login alone does not satisfy the claim requirement.
+- The day-5 milestone example remains account-specific: after four consecutive successful personal Daily cycles, that account's fifth consecutive claim receives the configured day-5 bonus. The amount must be configured before implementation.
+- Cooldown modifiers must be applied once to the canonical 24-hour base interval using one server-side formula. For example, equipped Kapibarątko reduces the wait by 5%; equipped Słabość increases it by 5% per level. Resolve all combined modifiers, event effects, minimum cooldown and rounding centrally. Do not let a client timer shorten the real cooldown.
+- The leaderboard must show consecutive qualifying personal cycles (login + claim), not simply consecutive visits or calendar dates. Keep the public nickname/avatar only; never expose email or private account data.
+- Acceptance tests must cover claims across midnight, daylight-saving changes, timezone changes, users with different claim anchors, early/late claim attempts, equipped cooldown modifiers, event stacking, login without claim, claim without login, and missed personal cycles.
