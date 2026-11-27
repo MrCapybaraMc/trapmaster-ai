@@ -32,10 +32,10 @@ All percentages below are additive percentage modifiers to the relevant base val
 
 ### Basic pool — Słabe losowanie
 
-- **Zniżka I–II**: each level gives 5% discount on eligible package purchases made with Daily Points. Level II = 10%. Highest possible level in the full system is V, not VI.
+- **Zniżka I–II**: each level gives 5% discount on eligible package purchases, whether paid with Daily Points or server dollars. Level II = 10%. Highest possible level in the full system is V, not VI. The same rule applies to Zniżka III–V in higher-tier pools.
 - **Długość I–II**: each level extends the purchased package's duration by 5%; level II = 10%.
 - **Premium I**: reduces the Daily Point cost of enchanting by 10% and gives a 10% discount on all TrapMasters packages purchased with Daily Points.
-- **Enchantowiec I–II**: level I gives 2 total attempts per paid roll; level II gives 3 total attempts. This is the rarest Basic-pool result.
+- **Enchantowiec I–II**: each level unlocks one additional enchant-roll attempt in a specific tier: level I = one additional attempt in the Basic / Słabe losowanie pool (350 Daily Points); level II = one additional attempt in the Medium / Średnie losowanie pool (600 Daily Points). It does not grant attempts in other tiers. The exact activation/consumption rule must be shown before use and enforced server-side.
 - **Słabość I–II**: each level increases the total Daily cooldown by 5%; level II = 10%. This is a drawback and must be visibly marked as such.
 - **Daily I–III**: each level increases the Daily Points reward by 5% per Daily claim; level III = 15%.
 - **Lucky I–II**: each level adds 5% relative luck weight toward better outcomes. Do not treat this as an unbounded absolute percentage-point increase; define a capped, normalized server-side weighting formula.
@@ -178,10 +178,10 @@ Event modifiers must be applied on the server, have explicit caps and stacking r
 
 The collapsible **Rozwiń listę enchantów** section must list every enchant type, its tier, whether it has levels, its possible level range, and its exact effect. Keep this catalogue synchronized with server configuration. It must include:
 
-- **Zniżka I–V** — each level gives 5% off eligible package purchases made with Daily Points (up to 25% at V), subject to discount caps.
+- **Zniżka I–V** — each level gives 5% off eligible package purchases paid with either Daily Points or server dollars (up to 25% at V), subject to discount caps.
 - **Długość I–VI** — each level adds 5% package duration (up to 30%), subject to duration caps.
 - **Premium I–III** — reduces Daily Point enchanting cost by 10% per level and gives 10% package discount per level for packages paid with Daily Points, subject to caps.
-- **Enchantowiec I–VI** — increases attempts in one paid enchant roll; level I = 2 total attempts, level II = 3 total attempts; higher levels require an explicit configured rule and must not be guessed.
+- **Enchantowiec I–II** — grants one additional attempt for the corresponding enchant tier: I = one attempt in Słabe losowanie (350 Daily Points); II = one attempt in Średnie losowanie (600 Daily Points). No levels III–VI exist.
 - **Słabość I–VI** — each level increases the Daily waiting period by 5%; clearly mark as a drawback.
 - **Daily I–VI** — each level adds 5% to the Daily Points reward (up to 30%), subject to reward caps.
 - **Lucky I–VI** — each level adds 5% relative weight toward better enchant outcomes; use the capped, normalized server-side formula, not an unbounded absolute percentage-point bonus.
@@ -190,3 +190,14 @@ The collapsible **Rozwiń listę enchantów** section must list every enchant ty
 - **Kapibarątko (no level)** — brown capybara-themed Best-tier enchant; −5% every eligible package, +5% package duration, +5% Daily Points reward, and −5% Daily waiting time while equipped.
 
 The UI must not display unsupported levels as obtainable. For any enchant whose upper levels have no defined effect yet (for example Enchantowiec III–VI), either display them as admin-only/unavailable until configured or obtain an approved rule before enabling those levels in normal rolls.
+
+
+## Enchant discount currency coverage and Enchantowiec revision (2026-11-27)
+
+- **Zniżka I–V** applies to eligible TrapMasters package purchases paid with either **Daily Points** or **server dollars**. Each level gives 5% discount, up to 25% at level V, subject to the central discount cap and rounding policy. The checkout must calculate and disclose the discount for both payment methods using the same server-side pricing function. Do not silently restrict Zniżka to Daily Points purchases.
+- **Enchantowiec has exactly two levels:**
+  - **Enchantowiec I:** grants one additional attempt in the Basic / **Słabe losowanie** tier, whose base price is 350 Daily Points.
+  - **Enchantowiec II:** grants one additional attempt in the Medium / **Średnie losowanie** tier, whose base price is 600 Daily Points.
+- Enchantowiec does not grant attempts in the Best / 1,000 Daily Points tier. Levels III–VI are removed and must not appear as obtainable in the catalogue or normal roll tables.
+- Enchantowiec is an equipped enchant, so its benefit is active only while equipped. The UI must clearly show which tier's extra attempt is available and whether it has been used/consumed. The server must enforce the attempt and prevent replay or duplicate use.
+- Before implementation, preserve the product rule that the additional attempt is one attempt for the corresponding tier; do not reinterpret the old “2 or 3 total attempts per paid roll” behavior. The exact reset/consumption cadence (for example, per roll versus a separately granted use) remains a product decision and must be confirmed before coding; no cadence should be invented.
