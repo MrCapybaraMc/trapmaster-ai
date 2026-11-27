@@ -141,3 +141,12 @@ Release checklist must reference every acceptance test in the linked specificati
 - All benefit calculations and protected content access are server-side, audited and role/entitlement checked. See `docs/og-badge-spec.md`.
 - OG mass grants require Owner-only explicit confirmation and an audit snapshot of the accounts affected. Future registrations are not automatically included.
 - This is a specification addition only; it is not implemented or deployed until the acceptance tests pass on Beta.
+
+
+## Daily streak rewards and activity leaderboard (2026-11-27) — specification only
+
+- Daily milestone bonuses are account-specific: after four consecutive successful Daily claims, the fifth consecutive claim grants the configured day-5 bonus only to that account. A missed Daily period breaks the active claim streak; the next claim starts at day 1.
+- Add a statistics leaderboard for longest consecutive activity streaks. A qualifying day requires both a server-recorded login and a successful Daily claim in that same Daily period.
+- Track current and historical longest streaks, milestone rewards and claim/login periods server-side; make claims and bonus grants atomic and idempotent. Do not expose private account data in the public leaderboard.
+- Exact bonus amount and any later recurring milestones must be configurable and approved before implementation; do not assume an amount. Coordinate reward calculation with existing OG Daily +15% and Daily enchantment modifiers without double-counting.
+- See `docs/daily-streaks-spec.md`. This is a specification addition only, not implemented or deployed.
