@@ -66,13 +66,13 @@ export default function RegisterPage({ initialMode = "register" }) {
           setMessage("Konto utworzone! Sprawdź e-mail i potwierdź rejestrację.");
         } else {
           setMessage("Konto utworzone! Przekierowuję...");
-          router.push("/update-1");
+          router.push("/");
           router.refresh();
         }
       } else {
         const { error } = await supabase.auth.signInWithPassword({ email: email.trim(), password });
         if (error) throw error;
-        router.push("/update-1");
+        router.push("/");
         router.refresh();
       }
     } catch (error) {
