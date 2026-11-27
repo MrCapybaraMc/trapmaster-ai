@@ -111,13 +111,6 @@ export default function UpdateOnePage() {
     if (!error) setComboCode("");
   }
 
-  async function saveVideoMute(next: boolean) {
-    setVideoMuted(next);
-    const { data: current } = await supabase.from("tm_user_settings").select("language,uses_puller").eq("user_id",userId).maybeSingle();
-    const { error } = await supabase.from("tm_user_settings").upsert({ user_id:userId, videos_muted:next, language:current?.language??"pl", uses_puller:current?.uses_puller??false }, { onConflict:"user_id" });
-    if (error) setMessage(error.message);
-  }
-
   async function openTrap(trap: Trap) {
     setSelected(trap);
     await supabase.from("trap_views").insert({ user_id: userId, trap_id: trap.id });
