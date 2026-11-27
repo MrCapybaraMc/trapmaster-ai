@@ -167,3 +167,12 @@ Release checklist must reference every acceptance test in the linked specificati
 - Enchantowiec now has exactly two levels: I grants one additional attempt in the 350-Daily-Point Basic / Słabe losowanie tier; II grants one additional attempt in the 600-Daily-Point Medium / Średnie losowanie tier. It grants no Best-tier attempt; levels III–VI are removed.
 - The exact reset/consumption cadence for Enchantowiec's additional attempt must be confirmed before implementation; do not assume whether it is per roll or a separately granted use.
 - See `docs/enchanting-table-spec.md`. This is a documentation update only; no application code, database migration or deployment was performed.
+
+
+## Owner/HeadAdmin Daily Points management (2026-11-27) — specification only
+
+- Add an admin-panel tool for **Owner and HeadAdmin** to manage a selected user's Daily Points.
+- Provide two distinct operations: **Dodaj punkty** (credit an exact amount) and **Ustaw saldo** (set an exact target balance by recording the calculated signed difference).
+- Require a reason and a confirmation preview. Every operation must create an immutable, auditable ledger entry; never overwrite or erase historical ledger records.
+- Enforce role checks server-side: Owner/HeadAdmin allowed; Admin and ordinary users denied. Make balance calculation and ledger write atomic and idempotent.
+- See docs/enchanting-table-spec.md. Documentation only; no application code, database migration or deployment was performed.
