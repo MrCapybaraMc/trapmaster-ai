@@ -17,12 +17,21 @@ export default function UpdateOneLayout({children}:{children:ReactNode}){
  const [language,setLanguage]=useState("pl");
  const [activePackage,setActivePackage]=useState<PackageItem|null>(null);
  const [announcement,setAnnouncement]=useState<Announcement|null>(null);
+ const [authUser,setAuthUser]=useState<{id:string;email?:string}|null>(null);
+ const [isStaff,setIsStaff]=useState(false);
+ const [authLoaded,setAuthLoaded]=useState(false);
  const sessionKey=useRef<string|null>(null);
  // eslint-disable-next-line react-hooks/set-state-in-effect
  useEffect(()=>{
   let active=true;
   async function load(){
    const {data:auth}=await db.auth.getUser();
+   setAuthUser(auth.user?{id:auth.user.id,email:auth.user.email??undefined}:null);
+   if(auth.user){
+    const {data:roleRows}=await db.from("user_roles").select("role").eq("user_id",auth.user.id);
+    setIsStaff((roleRows??[]).some((row:{role:string})=>["admin","headadmin","owner"].includes(row.role)));
+   }else setIsStaff(false);
+   setAuthLoaded(true);
    sessionKey.current=sessionKey.current??crypto.randomUUID();
    await db.from("tm_page_views").insert({user_id:auth.user?.id??null,session_key:sessionKey.current,page_path:pathname});
    const [{data:events},{data:settings},{data:orders},{data:announcements}]=await Promise.all([
@@ -43,8 +52,16 @@ export default function UpdateOneLayout({children}:{children:ReactNode}){
    }else setEvent(list[0]??null);
   }
   void load();
+  const {data:authListener}=db.auth.onAuthStateChange((_event,session)=>{
+   const next=session?.user??null;
+   setAuthUser(next?{id:next.id,email:next.email??undefined}:null);
+   if(next){
+    void db.from("user_roles").select("role").eq("user_id",next.id).then(({data})=>setIsStaff((data??[]).some((row:{role:string})=>["admin","headadmin","owner"].includes(row.role))));
+   }else setIsStaff(false);
+   setAuthLoaded(true);
+  });
   const tick=window.setInterval(()=>setNow(Date.now()),1000);
-  return ()=>{active=false;window.clearInterval(tick);};
+  return ()=>{active=false;authListener.subscription.unsubscribe();window.clearInterval(tick);};
  },[db,pathname]);
  // eslint-disable-next-line react-hooks/set-state-in-effect
  useEffect(()=>{
@@ -68,7 +85,7 @@ export default function UpdateOneLayout({children}:{children:ReactNode}){
  const packageCountdown=packageRemaining===null?"bezterminowy":packageRemaining<=0?"0d 0h 0m 0s":`${Math.floor(packageRemaining/86400000)}d ${Math.floor(packageRemaining%86400000/3600000)}h ${Math.floor(packageRemaining%3600000/60000)}m ${Math.floor(packageRemaining%60000/1000)}s`;
  const countdown=remaining<=0?(language==="en"?"Event started":"Wydarzenie rozpoczęte"):`${Math.floor(remaining/86400000)}d ${Math.floor(remaining%86400000/3600000)}h ${Math.floor(remaining%3600000/60000)}m ${Math.floor(remaining%60000/1000)}s`;
  return <>{event&&!dismissed&&<aside className="sticky top-0 z-50 flex flex-wrap items-center justify-between gap-3 border-b border-purple-300/20 bg-[#24113e] px-4 py-3 text-white"><div><strong>{event.title}</strong><span className="ml-3 text-sm text-purple-100">{countdown}</span>{event.description&&<p className="text-xs text-white/70">{event.description}</p>}</div>{!pathname.includes("/account")&&<button onClick={()=>void dismiss()} aria-label="Ukryj wydarzenie" className="rounded-lg bg-white/10 px-3 py-1">×</button>}</aside>}
- <nav className="sticky top-0 z-40 flex flex-wrap items-center justify-center gap-2 border-b border-white/10 bg-black/80 px-3 py-2 text-xs text-white backdrop-blur"><Link href="/update-1" aria-label="TrapMasters" className="mr-2 flex items-center"><span role="img" aria-label="TrapMasters" className="block h-8 w-40 bg-contain bg-left bg-no-repeat" style={{backgroundImage:"url(/trapmasters-logo.svg)"}} /></Link><Link href="/update-1" className="rounded-lg bg-white/10 px-3 py-2">{language==="en"?"Catalog":"Katalog"}</Link><Link href="/update-1/daily" className="rounded-lg bg-white/10 px-3 py-2">{language==="en"?"Daily":"Daily"}</Link><Link href="/update-1/community" className="rounded-lg bg-white/10 px-3 py-2">{language==="en"?"Community":"Społeczność"}</Link><Link href="/update-1/opinions" className="rounded-lg bg-white/10 px-3 py-2">{language==="en"?"Reviews":"Opinie"}</Link><Link href="/update-1/creators" className="rounded-lg bg-white/10 px-3 py-2">{language==="en"?"Creators":"Twórcy"}</Link><Link href="/update-1/stats" className="rounded-lg bg-white/10 px-3 py-2">{language==="en"?"Statistics":"Statystyki"}</Link><Link href="/update-1/partners" className="rounded-lg bg-white/10 px-3 py-2">{language==="en"?"Partners":"Partnerstwa"}</Link><Link href="/update-1/account" className="rounded-lg bg-white/10 px-3 py-2">{language==="en"?"Account":"Konto"}</Link><Link href="/update-1/pay" className="rounded-lg bg-white/10 px-3 py-2">{language==="en"?"Pay":"Pay"}</Link><Link href="/update-1/admin" className="rounded-lg bg-white/10 px-3 py-2">{language==="en"?"Admin":"Panel"}</Link><Link href="/login" className="rounded-lg bg-purple-600 px-3 py-2 font-semibold">{language==="en"?"Log in":"Zaloguj się"}</Link><Link href="/register" className="rounded-lg bg-white/10 px-3 py-2">{language==="en"?"Sign up":"Rejestracja"}</Link></nav>
+ <nav className="sticky top-0 z-40 flex flex-wrap items-center justify-center gap-2 border-b border-white/10 bg-black/80 px-3 py-2 text-xs text-white backdrop-blur"><Link href="/" aria-label="TrapMasters — strona główna" className="mr-2 flex items-center rounded-lg px-2 py-1 text-base font-black tracking-[.12em] text-white">TRAP<span className="text-purple-300">MASTERS</span></Link><Link href="/update-1" className="rounded-lg bg-white/10 px-3 py-2">{language==="en"?"Catalog":"Katalog"}</Link><Link href="/update-1/daily" className="rounded-lg bg-white/10 px-3 py-2">{language==="en"?"Daily":"Daily"}</Link><Link href="/update-1/community" className="rounded-lg bg-white/10 px-3 py-2">{language==="en"?"Community":"Społeczność"}</Link><Link href="/update-1/opinions" className="rounded-lg bg-white/10 px-3 py-2">{language==="en"?"Reviews":"Opinie"}</Link><Link href="/update-1/creators" className="rounded-lg bg-white/10 px-3 py-2">{language==="en"?"Creators":"Twórcy"}</Link><Link href="/update-1/stats" className="rounded-lg bg-white/10 px-3 py-2">{language==="en"?"Statistics":"Statystyki"}</Link><Link href="/update-1/partners" className="rounded-lg bg-white/10 px-3 py-2">{language==="en"?"Partners":"Partnerstwa"}</Link><Link href="/update-1/pay" className="rounded-lg bg-white/10 px-3 py-2">{language==="en"?"Pay":"Pay"}</Link>{authUser&&<Link href="/update-1/account" className="rounded-lg bg-white/10 px-3 py-2">{language==="en"?"Account":"Konto"}</Link>}{isStaff&&<Link href="/update-1/admin" className="rounded-lg bg-white/10 px-3 py-2">{language==="en"?"Admin":"Panel"}</Link>}{authLoaded&&!authUser&&<><Link href="/login" className="rounded-lg bg-purple-600 px-3 py-2 font-semibold">{language==="en"?"Log in":"Zaloguj się"}</Link><Link href="/register" className="rounded-lg bg-white/10 px-3 py-2">{language==="en"?"Sign up":"Rejestracja"}</Link></>}{authUser&&<button onClick={()=>void db.auth.signOut()} className="rounded-lg bg-white/10 px-3 py-2">{language==="en"?"Log out":"Wyloguj się"}</button>}</nav>
  {activePackage&&<div className="fixed bottom-4 left-4 z-40 rounded-xl border border-emerald-300/20 bg-black/80 px-3 py-2 text-xs text-emerald-100 backdrop-blur">{`${language==="en"?"Package":"Pakiet"} ${activePackage.package_type}: ${packageCountdown}` }</div>}
  <div className="fixed bottom-4 right-4 z-40 flex items-center gap-1 rounded-xl border border-white/15 bg-black/75 p-1 text-xs text-white backdrop-blur"><button onClick={()=>void changeLanguage("pl")} className={`rounded-lg px-2 py-1 ${language==="pl"?"bg-purple-600":""}`}>PL</button><button onClick={()=>void changeLanguage("en")} className={`rounded-lg px-2 py-1 ${language==="en"?"bg-purple-600":""}`}>EN</button></div>
  {children}</>;
