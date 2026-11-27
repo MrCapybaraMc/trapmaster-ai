@@ -176,3 +176,12 @@ Release checklist must reference every acceptance test in the linked specificati
 - Require a reason and a confirmation preview. Every operation must create an immutable, auditable ledger entry; never overwrite or erase historical ledger records.
 - Enforce role checks server-side: Owner/HeadAdmin allowed; Admin and ordinary users denied. Make balance calculation and ledger write atomic and idempotent.
 - See docs/enchanting-table-spec.md. Documentation only; no application code, database migration or deployment was performed.
+
+
+## Beta release readiness audit (2026-11-27)
+
+- Added `docs/beta-release-readiness.md` with verified current environment state, implementation gaps, Supabase security audit notes and exact owner actions to unblock a real preview.
+- Confirmed the Beta Supabase project is healthy but has no Auth users; its migration history has only the Beta security-definer lockdown migration and requires a reconciled baseline before automated replay.
+- Confirmed there is no linked Vercel Git project or preview deployment for the Beta branch. Creating a new Vercel project through the connected tool returned HTTP 403 (insufficient permission); no project/deployment or production-domain change was made.
+- Confirmed current Daily code still uses UTC calendar-date eligibility, and the Beta schema has two separate points balances (`profiles.points` and `daily_points.balance`). These must be reconciled before safely implementing rolling Daily or staff point adjustments.
+- Current release state: **not ready for public Beta testing**. See the readiness audit for owner steps and release gates.
