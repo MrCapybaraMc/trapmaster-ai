@@ -201,3 +201,17 @@ The UI must not display unsupported levels as obtainable. For any enchant whose 
 - Enchantowiec does not grant attempts in the Best / 1,000 Daily Points tier. Levels III–VI are removed and must not appear as obtainable in the catalogue or normal roll tables.
 - Enchantowiec is an equipped enchant, so its benefit is active only while equipped. The UI must clearly show which tier's extra attempt is available and whether it has been used/consumed. The server must enforce the attempt and prevent replay or duplicate use.
 - Before implementation, preserve the product rule that the additional attempt is one attempt for the corresponding tier; do not reinterpret the old “2 or 3 total attempts per paid roll” behavior. The exact reset/consumption cadence (for example, per roll versus a separately granted use) remains a product decision and must be confirmed before coding; no cadence should be invented.
+
+
+## Owner/HeadAdmin Daily Points management (2026-11-27)
+
+- Add a dedicated **Daily Points management** action in the Beta administration panel, available only to **Owner and HeadAdmin**. The ordinary Admin role and regular users must be denied both in the UI and by server-side authorization.
+- Staff selects a target account and chooses one of two explicit operations:
+  1. **Dodaj punkty** — enter an exact positive amount to credit to the account's current Daily Points balance.
+  2. **Ustaw saldo** — enter the exact target Daily Points balance. The system calculates the difference from the current balance and records that difference as an administrative adjustment; it must not overwrite or delete ledger history.
+- Require a reason for every adjustment and show a confirmation summary with target account, current balance, operation, amount/difference and resulting balance before submission.
+- Persist every change as an immutable Daily Points ledger entry with actor ID/role, target account ID, operation type, signed delta, previous and resulting balance, reason, timestamp and unique idempotency key.
+- Perform authorization, balance calculation and ledger insert atomically on the server/database. Reject invalid, negative target balances, malformed amounts, duplicate/replayed requests and unauthorized attempts. Use defined numeric precision and integer-point rules consistently.
+- Owner and HeadAdmin may view the target's current balance and adjustment history in the admin panel. Do not expose private account data beyond the staff permission model.
+- Add audit tests proving Owner and HeadAdmin can add points and set a balance; Admin and ordinary users cannot; repeated submissions do not duplicate credits; and setting a balance creates a ledger adjustment without rewriting historical entries.
+- This is a specification requirement only until implemented, migrated and verified on the isolated Beta environment.
