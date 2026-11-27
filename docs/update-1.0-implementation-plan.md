@@ -132,3 +132,12 @@ Previously documented Update 1.0 scope remains required and must be checked befo
 - Polish/English coverage, official supplied logo in navigation/footer/loading state, and all previously listed trap library/account/creator/notification/Discord/analytics requirements in this plan and linked specifications.
 
 Release checklist must reference every acceptance test in the linked specifications. Documentation commits do not count as feature completion. Implement and verify each item only on the Beta branch and isolated Beta Supabase project; never change main or production.
+
+
+## OG badge and exclusive benefits (2026-11-27) — specification only
+
+- Owner can grant/revoke OG to one selected account or all accounts existing at a confirmed moment; HeadAdmin can grant/revoke selected accounts individually only; Admin cannot manage OG.
+- OG benefits: approximately 3-day early access to configured new traps; access to selected private Kapibara redstone builds (including the Pearl Stealer 1.0 project page/build); 8% off eligible packages; +15% Daily Points per eligible daily claim; 15% off account enchanting; +10 percentage points account-enchant luck; and private downloads of music TrapMasters is authorized to distribute.
+- All benefit calculations and protected content access are server-side, audited and role/entitlement checked. See `docs/og-badge-spec.md`.
+- OG mass grants require Owner-only explicit confirmation and an audit snapshot of the accounts affected. Future registrations are not automatically included.
+- This is a specification addition only; it is not implemented or deployed until the acceptance tests pass on Beta.
