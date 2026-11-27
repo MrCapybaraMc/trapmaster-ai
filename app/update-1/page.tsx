@@ -48,11 +48,17 @@ export default function UpdateOnePage() {
   const [userId, setUserId] = useState("");
   const [isStaff, setIsStaff] = useState(false);
   const [canAddTrap, setCanAddTrap] = useState(false);
+  const [accessChecked, setAccessChecked] = useState(false);
+  const [hasAccess, setHasAccess] = useState(false);
 
   const load = useCallback(async () => {
     const { data: auth } = await supabase.auth.getUser();
-    if (!auth.user) { setMessage("Zaloguj się, aby korzystać z katalogu."); return; }
+    if (!auth.user) { setHasAccess(false); setAccessChecked(true); setMessage("Zaloguj się i uzyskaj rangę Trap Creator lub pakiet TrapMasters, aby korzystać z biblioteki."); return; }
     setUserId(auth.user.id);
+    const { data: entitled, error: entitlementError } = await supabase.rpc("has_trapmaster_access");
+    if (entitlementError || entitled !== true) { setHasAccess(false); setAccessChecked(true); setTraps([]); setMessage("Brak dostępu. Wymagana ranga Trap Creator, zakupiony pakiet TrapMasters, HeadAdmin lub Owner."); return; }
+    setHasAccess(true);
+    setAccessChecked(true);
     const { data: roleRows } = await supabase.from("user_roles").select("role").eq("user_id",auth.user.id);
     const roles = (roleRows ?? []).map((row:{role:string}) => row.role);
     setIsStaff(roles.some((role:string)=>["admin","headadmin","owner"].includes(role)));
@@ -181,7 +187,7 @@ export default function UpdateOnePage() {
       <div className="relative z-10 mx-auto max-w-7xl">
         <header className="mb-8 flex flex-wrap items-center justify-between gap-4 border-b border-white/10 bg-black/35 px-4 py-5 backdrop-blur-md">
           <div><p className="text-xs font-bold tracking-[.3em] text-purple-300">TRAPMASTERS</p><h1 className="mt-2 text-4xl font-black">Biblioteka trapów</h1><p className="mt-2 text-white/60">Trapy, instrukcje i schematy społeczności</p></div>
-          <button onClick={() => { if (videoMuted) { const player = backgroundVideoRef.current; if (player) { player.muted = false; void player.play().catch(() => setMessage("Przeglądarka zablokowała odtwarzanie. Naciśnij ▶ na filmie.")); } void saveVideoMute(false); } else { if (backgroundVideoRef.current) backgroundVideoRef.current.muted = true; void saveVideoMute(true); } }} className="rounded-xl border border-white/15 px-3 py-2 text-sm">{videoMuted ? "Włącz dźwięk" : "Wycisz film"}</button><nav className="flex flex-wrap gap-2"><Link href="/update-1/daily" className="rounded-xl border border-white/15 px-3 py-2 text-sm">Daily</Link><Link href="/update-1/community" className="rounded-xl border border-white/15 px-3 py-2 text-sm">Społeczność</Link><Link href="/update-1/account" className="rounded-xl border border-white/15 px-3 py-2 text-sm">Konto</Link>{isStaff && <Link href="/update-1/admin" className="rounded-xl border border-white/15 px-3 py-2 text-sm">Panel</Link>}<Link href="/update-1/creators" className="rounded-xl border border-white/15 px-3 py-2 text-sm">Twórcy</Link><Link href="/update-1/opinions" className="rounded-xl border border-white/15 px-3 py-2 text-sm">Opinie</Link><Link href="/" className="rounded-xl border border-white/15 px-3 py-2 text-sm">Powrót</Link></nav>
+<nav className="flex flex-wrap gap-2"><Link href="/update-1/daily" className="rounded-xl border border-white/15 px-3 py-2 text-sm">Daily</Link><Link href="/update-1/community" className="rounded-xl border border-white/15 px-3 py-2 text-sm">Społeczność</Link><Link href="/update-1/account" className="rounded-xl border border-white/15 px-3 py-2 text-sm">Konto</Link>{isStaff && <Link href="/update-1/admin" className="rounded-xl border border-white/15 px-3 py-2 text-sm">Panel</Link>}<Link href="/update-1/creators" className="rounded-xl border border-white/15 px-3 py-2 text-sm">Twórcy</Link><Link href="/update-1/opinions" className="rounded-xl border border-white/15 px-3 py-2 text-sm">Opinie</Link><Link href="/" className="rounded-xl border border-white/15 px-3 py-2 text-sm">Powrót</Link></nav>
         </header>
         <nav className="mb-5 flex flex-wrap gap-2">
           {(["traps","library","backup"] as const).map((item) => <button key={item} onClick={() => { setTab(item); setSelected(null); }} className={`rounded-xl px-4 py-2 text-sm font-bold ${tab===item?"bg-purple-600":"bg-white/10"}`}>{item==="traps"?"Trapy":item==="library"?"Biblioteka":"Backupy"}</button>)}
