@@ -150,3 +150,12 @@ Release checklist must reference every acceptance test in the linked specificati
 - Track current and historical longest streaks, milestone rewards and claim/login periods server-side; make claims and bonus grants atomic and idempotent. Do not expose private account data in the public leaderboard.
 - Exact bonus amount and any later recurring milestones must be configurable and approved before implementation; do not assume an amount. Coordinate reward calculation with existing OG Daily +15% and Daily enchantment modifiers without double-counting.
 - See `docs/daily-streaks-spec.md`. This is a specification addition only, not implemented or deployed.
+
+
+## Account enchant inventory, Kapibarątko and rolling Daily (2026-11-27) — specification only
+
+- Account enchant inventory: at most 6 distinct owned enchant types; at most 3 equipped at once. Only equipped enchants apply. Server-side limits, explicit replacement choice when full, and shared UI catalogue are required.
+- Add Best-tier 1,000-point enchant **Kapibarątko** (no level; brown capybara-inspired appearance): while equipped, −5% on every eligible package, +5% package duration, +5% Daily Points reward and −5% Daily waiting time. Its Best-pool probability must be configured, not guessed. See docs/enchanting-table-spec.md.
+- Daily becomes a personal rolling 24-hour schedule from the previous successful claim, not a midnight reset. Show a countdown to the next eligible claim in the Daily tab. Streaks and the combined login+Daily leaderboard use personal claim cycles, not calendar dates. See docs/daily-streaks-spec.md.
+- The existing day-5 streak bonus is account-specific and requires four consecutive successful personal Daily cycles before the fifth claim; exact bonus amount remains to be configured.
+- The enchanting specification contains the unified user-facing list of all enchant types and effects. These changes are specification-only, not implemented or deployed.
