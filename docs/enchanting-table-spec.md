@@ -133,3 +133,11 @@ Event modifiers must be applied on the server, have explicit caps and stacking r
 - Lucky is a capped relative weight modifier, not a flat percentage-point bonus.
 - Event modifiers need explicit caps and stacking policy configured before activation.
 - The 10% TrapMaster chance is fixed for the Best pool; remaining Best-pool weights still need a complete probability table.
+
+## Package card and checkout disclosure (2026-11-27)
+
+- Every package card and checkout summary must display its base schematic download allowance: 1 day = 5/day, 1 week = 7/day, 1 month = 10/day, lifetime = 15/day.
+- If the account has an active Długość enchant, show a clear per-package preview beside each package: base duration, active enchant level, exact additional time (e.g. +5% / +10%) and final duration after all capped modifiers. Calculate the preview using the same server-side calculation as checkout; never show a client-only estimate that differs from the actual entitlement.
+- If multiple duration enchants/events apply, show the combined capped result and disclose the stacking rule. The checkout must revalidate the final duration before charging.
+- Display active account enchants and their effects in both the Enchanting Table and account information; both views must read the same canonical server data.
+- The TrapMaster special entitlement stays unactivated and tradeable until the user presses the persistent **Aktywuj TrapMaster** action. Activation starts the one-hour timer and two-download allowance; activated entitlements cannot be traded.
