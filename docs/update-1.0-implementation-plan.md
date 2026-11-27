@@ -159,3 +159,11 @@ Release checklist must reference every acceptance test in the linked specificati
 - Daily becomes a personal rolling 24-hour schedule from the previous successful claim, not a midnight reset. Show a countdown to the next eligible claim in the Daily tab. Streaks and the combined login+Daily leaderboard use personal claim cycles, not calendar dates. See docs/daily-streaks-spec.md.
 - The existing day-5 streak bonus is account-specific and requires four consecutive successful personal Daily cycles before the fifth claim; exact bonus amount remains to be configured.
 - The enchanting specification contains the unified user-facing list of all enchant types and effects. These changes are specification-only, not implemented or deployed.
+
+
+## Enchant currency discounts and Enchantowiec revision (2026-11-27) — specification only
+
+- Zniżka I–V discounts eligible package purchases paid with either Daily Points or server dollars, at 5% per level (up to 25%), subject to centrally enforced caps and server-side checkout calculation.
+- Enchantowiec now has exactly two levels: I grants one additional attempt in the 350-Daily-Point Basic / Słabe losowanie tier; II grants one additional attempt in the 600-Daily-Point Medium / Średnie losowanie tier. It grants no Best-tier attempt; levels III–VI are removed.
+- The exact reset/consumption cadence for Enchantowiec's additional attempt must be confirmed before implementation; do not assume whether it is per roll or a separately granted use.
+- See `docs/enchanting-table-spec.md`. This is a documentation update only; no application code, database migration or deployment was performed.
