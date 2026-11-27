@@ -27,7 +27,8 @@ export default function DailyPage() {
    db.from("daily_points").select("balance").eq("user_id",auth.user.id).maybeSingle(),
    db.from("daily_point_transfers").select("*").or(`sender_id.eq.${auth.user.id},recipient_id.eq.${auth.user.id}`).order("created_at",{ascending:false}).limit(30),
    db.from("user_achievements").select("achievement_id,earned_at,tm_achievements(title,description,points)").eq("user_id",auth.user.id),
-   db.from("tm_user_settings").select("videos_muted").eq("user_id",auth.user.id).maybeSingle()
+   db.from("tm_user_settings").select("videos_muted").eq("user_id",auth.user.id).maybeSingle(),
+   db.from("daily_point_transfers").select("id",{count:"exact",head:true}).eq("sender_id",auth.user.id).gte("created_at",utcStart.toISOString())
   ]);
   setBalance(points?.balance??0);setTransfers((history??[]) as Transfer[]);setAchievements((earned??[]) as Achievement[]);setSentToday(todayCount??0);
   setMuted(settings?.videos_muted??true);
